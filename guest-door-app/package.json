@@ -1,0 +1,16 @@
+{
+  "name": "guest-door-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PIN-geschützte WebApp zum Öffnen von Haustür (Ring Intercom) und Wohnungstür (Nuki) über Home Assistant",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "add-guest": "node scripts/add-guest.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ws": "^8.17.0"
+  }
+}

@@ -1,0 +1,11 @@
+services:
+  guest-door-app:
+    build: .
+    container_name: guest-door-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./guests.json:/app/guests.json

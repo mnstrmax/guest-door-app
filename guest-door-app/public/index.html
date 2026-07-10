@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Willkommen</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="card">
+    <h1>Willkommen 👋</h1>
+
+    <section id="step-pin" class="step">
+      <p>Bitte gib die PIN ein, die du von deinem Gastgeber erhalten hast.</p>
+      <form id="pin-form">
+        <input type="tel" inputmode="numeric" pattern="[0-9]*" id="pin-input"
+               placeholder="PIN" autocomplete="off" required>
+        <button type="submit">Bestätigen</button>
+      </form>
+      <p class="error" id="pin-error"></p>
+    </section>
+
+    <section id="step-bell" class="step hidden">
+      <h2>Fast geschafft!</h2>
+      <p>Bitte betätige jetzt <strong>einmal</strong> die Klingel an der Gegensprechanlage.</p>
+      <div class="spinner"></div>
+      <p class="hint">Wir warten auf dein Klingeln …</p>
+      <p class="error" id="bell-error"></p>
+    </section>
+
+    <section id="step-street-open" class="step hidden">
+      <h2>Haustür ist offen! 🚪</h2>
+      <p>Bitte gehe jetzt hoch zur Wohnungstür.</p>
+      <button id="continue-btn">Weiter</button>
+    </section>
+
+    <section id="step-apartment" class="step hidden">
+      <h2>Wohnungstür öffnen</h2>
+      <p>Drücke den Button, sobald du vor der Wohnungstür stehst.</p>
+      <button id="apartment-btn">Wohnungstür öffnen</button>
+      <p class="error" id="apartment-error"></p>
+    </section>
+
+    <section id="step-done" class="step hidden">
+      <h2>Willkommen zuhause! 🎉</h2>
+      <p>Die Wohnungstür ist geöffnet. Wir wünschen dir einen schönen Aufenthalt.</p>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
