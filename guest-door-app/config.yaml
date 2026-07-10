@@ -1,5 +1,5 @@
 name: "Guest Door App"
-version: "1.0.0"
+version: "1.0.1"
 slug: "guest_door_app"
 description: "PIN-geschützte WebApp für Airbnb-Gäste: öffnet Haustür (Ring Intercom) und Wohnungstür (Nuki) über Home Assistant."
 url: "https://github.com/mnstrmax/guest-door-app"
@@ -15,6 +15,7 @@ ports:
   3000/tcp: 3000
 ports_description:
   3000/tcp: "Web-Oberfläche für Gäste (PIN-Eingabe)"
+webui: "http://[HOST]:[PORT:3000]/"
 options:
   doorbell_entity_id: "binary_sensor.vordereingang_ding"
   ring_intercom_entity_id: "lock.vordereingang_lock"
