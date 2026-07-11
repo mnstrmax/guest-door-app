@@ -18,8 +18,9 @@ Fotos (Wohnungstür, Zimmer) sowie Freitexte wie der Name auf dem Klingelschild 
 die Zimmer-Beschreibung landen **nie im Git-Repository** – sonst wären sie auf GitHub
 öffentlich einsehbar. Stattdessen:
 
-- Fotos: lokal ablegen (Add-on: Supervisor-"share"-Ordner, Standalone: `images/`-Ordner
-  im Projekt, per `.gitignore` ausgeschlossen) – siehe `images/README.md`.
+- Fotos: lokal ablegen (Add-on: `/config/guest-door-app-images/`, z. B. per "File editor"-
+  Add-on hochladbar; Standalone: `images/`-Ordner im Projekt, per `.gitignore`
+  ausgeschlossen) – siehe `images/README.md`.
 - Texte (`bell_label`, `apartment_location`, `room_location`): nur über die
   Add-on-Konfiguration bzw. `.env` gesetzt, nie im Quellcode.
 

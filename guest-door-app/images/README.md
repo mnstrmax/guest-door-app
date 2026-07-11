@@ -6,6 +6,6 @@ Nur relevant im **Standalone-Modus** (Docker Compose). Hier zwei Fotos ablegen:
 Dieser Ordner ist per `.gitignore` ausgeschlossen (außer dieser README) - die Fotos
 landen also nie im Git-Repository, auch nicht in der Historie.
 
-**Im Add-on-Modus** werden die Fotos stattdessen im Supervisor-"share"-Ordner erwartet,
-unter `share/guest-door-app/door.jpg` bzw. `share/guest-door-app/room.jpg`
-(z. B. per Samba-Netzlaufwerk "share" ablegen) - ebenfalls nie im Git-Repo.
+**Im Add-on-Modus** werden die Fotos stattdessen unter `/config/guest-door-app-images/`
+erwartet (also im normalen Home-Assistant-Konfigurationsordner, z. B. per "File editor"-
+Add-on hochladbar) - ebenfalls nie im Git-Repo.

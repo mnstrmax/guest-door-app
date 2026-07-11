@@ -33,10 +33,10 @@ if (isAddon) {
     bellLabel: opts.bell_label || '',
     apartmentLocation: opts.apartment_location || '',
     roomLocation: opts.room_location || '',
-    // Fotos liegen im Supervisor-"share"-Ordner (persistent, nicht Teil des Add-ons/Git).
-    // Lege sie dort unter guest-door-app/door.jpg bzw. guest-door-app/room.jpg ab
-    // (z.B. per Samba-Add-on, Netzlaufwerk "share").
-    imagesDir: '/share/guest-door-app',
+    // Fotos liegen in einem Unterordner von /config (nicht Teil des Add-ons/Git), damit
+    // sie über den vorhandenen "File editor"-Add-on hochgeladen werden können.
+    // Lege sie dort unter door.jpg bzw. room.jpg ab.
+    imagesDir: process.env.IMAGES_DIR_OVERRIDE || '/config/guest-door-app-images',
     // Passwort für die /admin-Seite (Gäste-Verwaltung mit Datum/Zeit-Picker).
     adminPassword: opts.admin_password || null,
     // Voller Name des notify-Service für Push-Benachrichtigungen an den Gastgeber,
