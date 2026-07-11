@@ -8,48 +8,56 @@
 </head>
 <body>
   <main class="card">
-    <h1>Willkommen 👋</h1>
+    <div class="lang-switcher" id="lang-switcher">
+      <button type="button" data-lang="de">DE</button>
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="fr">FR</button>
+      <button type="button" data-lang="es">ES</button>
+    </div>
+
+    <h1 id="title"></h1>
     <p class="hint hidden" id="guest-greeting"></p>
 
     <section id="step-pin" class="step">
-      <p>Bitte gib die PIN ein, die du von deinem Gastgeber erhalten hast.</p>
+      <p id="pin-intro"></p>
       <form id="pin-form">
         <input type="tel" inputmode="numeric" pattern="[0-9]*" id="pin-input"
                placeholder="PIN" autocomplete="off" required>
-        <button type="submit">Bestätigen</button>
+        <button type="submit" id="pin-submit"></button>
       </form>
       <p class="error" id="pin-error"></p>
     </section>
 
     <section id="step-bell" class="step hidden">
-      <h2>Fast geschafft!</h2>
-      <p>Bitte betätige jetzt <strong>einmal</strong> die Klingel<span id="bell-label-wrap" class="hidden"> bei <strong id="bell-label"></strong></span> an der Gegensprechanlage.</p>
+      <h2 id="bell-title"></h2>
+      <p id="bell-text"></p>
       <div class="spinner"></div>
-      <p class="hint">Wir warten auf dein Klingeln …</p>
+      <p class="hint" id="bell-waiting"></p>
       <p class="error" id="bell-error"></p>
     </section>
 
     <section id="step-street-open" class="step hidden">
-      <h2>Haustür ist offen! 🚪</h2>
-      <p>Bitte gehe jetzt hoch<span id="apartment-location-wrap" class="hidden"> zu: <strong id="apartment-location"></strong></span><span id="apartment-location-fallback" class="hidden"> zur Wohnungstür</span>.</p>
-      <button id="continue-btn">Weiter</button>
+      <h2 id="street-open-title"></h2>
+      <p id="street-open-text"></p>
+      <button type="button" id="continue-btn"></button>
     </section>
 
     <section id="step-apartment" class="step hidden">
-      <h2>Wohnungstür öffnen</h2>
-      <p>Das ist deine Wohnungstür. Drücke den Button, sobald du davor stehst.</p>
+      <h2 id="apartment-title"></h2>
+      <p id="apartment-intro"></p>
       <img src="/images/door.jpg" alt="Wohnungstür" class="guide-photo" onerror="this.style.display='none'">
-      <button id="apartment-btn">Wohnungstür öffnen</button>
+      <button type="button" id="apartment-btn"></button>
       <p class="error" id="apartment-error"></p>
     </section>
 
     <section id="step-done" class="step hidden">
-      <h2>Willkommen zuhause! 🎉</h2>
-      <p>Bitte schließe die Wohnungstür hinter dir.<span id="room-location-wrap" class="hidden"> Dein Zimmer ist: <strong id="room-location"></strong></span></p>
+      <h2 id="done-title"></h2>
+      <p id="done-text"></p>
       <img src="/images/room.jpg" alt="Dein Zimmer" class="guide-photo" onerror="this.style.display='none'">
-      <p>Wir wünschen dir einen schönen Aufenthalt!</p>
+      <p id="done-footer"></p>
     </section>
   </main>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

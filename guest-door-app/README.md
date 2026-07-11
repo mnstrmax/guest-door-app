@@ -4,6 +4,20 @@ Kleine WebApp für Airbnb-Gäste: PIN eingeben → einmal an der Ring-Gegensprec
 klingeln → Haustür öffnet sich automatisch (Ring Intercom) → Button für die
 Wohnungstür (Nuki) drücken. Gastgeber bekommt bei jedem Schritt eine Push-Benachrichtigung.
 
+## Sprachen
+
+Das Gäste-Frontend ist mehrsprachig: **Deutsch, Englisch, Französisch, Spanisch**.
+Die Sprache wird automatisch anhand der Browser-/Gerätesprache des Gasts erkannt,
+zusätzlich gibt es oben auf der Seite einen manuellen Umschalter (DE/EN/FR/ES).
+Übersetzungen liegen in `public/i18n.js`. Die `/admin`-Seite bleibt bewusst nur
+Deutsch (nur für dich als Gastgeber gedacht).
+
+Die frei konfigurierbaren Texte (`bell_label`, `apartment_location`, `room_location`)
+werden **nicht** automatisch übersetzt – sie erscheinen in jeder Sprache so, wie du sie
+in der Add-on-Konfiguration eingetragen hast. Tipp: kurz und möglichst sprachneutral
+halten (z. B. Eigennamen, Zahlen) oder bewusst weglassen, dann fällt die App auf
+generische, bereits übersetzte Standardsätze zurück.
+
 ## ⚠️ Update auf 1.1.0: Gäste-Verwaltung geändert
 
 Gäste werden nicht mehr über die Add-on-Konfiguration (Option `guests`) verwaltet,

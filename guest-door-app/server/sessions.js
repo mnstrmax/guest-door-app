@@ -17,6 +17,7 @@ function createSession(guest) {
     guestName: guest.name || 'Gast',
     step: 'await_bell',
     error: null,
+    errorCode: null,
     createdAt: Date.now(),
   });
   return token;

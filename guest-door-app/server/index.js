@@ -63,6 +63,7 @@ const ha = new HAClient({
         updateSession(session.token, {
           step: 'await_bell',
           error: 'Haustür konnte nicht geöffnet werden. Bitte erneut klingeln oder Gastgeber kontaktieren.',
+          errorCode: 'street_door_failed',
         });
         await ha.notify(
           config.notifyService,
@@ -82,18 +83,18 @@ function getClientIp(req) {
 app.post('/api/verify-pin', async (req, res) => {
   const ip = getClientIp(req);
   if (isRateLimited(ip)) {
-    return res.status(429).json({ error: 'Zu viele Versuche. Bitte später erneut versuchen.' });
+    return res.status(429).json({ error: 'Zu viele Versuche. Bitte später erneut versuchen.', code: 'rate_limited' });
   }
 
   const { pin } = req.body || {};
   if (!pin || typeof pin !== 'string') {
-    return res.status(400).json({ error: 'PIN erforderlich.' });
+    return res.status(400).json({ error: 'PIN erforderlich.', code: 'pin_required' });
   }
 
   const guest = findValidGuest(pin.trim());
   if (!guest) {
     recordAttempt(ip);
-    return res.status(401).json({ error: 'PIN ungültig oder aktuell nicht gültig.' });
+    return res.status(401).json({ error: 'PIN ungültig oder aktuell nicht gültig.', code: 'invalid_pin' });
   }
 
   resetAttempts(ip);
@@ -115,19 +116,28 @@ app.get('/api/session', (req, res) => {
   const token = req.query.token;
   const session = getSession(token);
   if (!session) {
-    return res.status(404).json({ error: 'Session abgelaufen oder ungültig. Bitte PIN erneut eingeben.' });
+    return res
+      .status(404)
+      .json({ error: 'Session abgelaufen oder ungültig. Bitte PIN erneut eingeben.', code: 'session_invalid' });
   }
-  res.json({ step: session.step, guestName: session.guestName, error: session.error || null });
+  res.json({
+    step: session.step,
+    guestName: session.guestName,
+    error: session.error || null,
+    errorCode: session.errorCode || null,
+  });
 });
 
 app.post('/api/open-apartment-door', async (req, res) => {
   const { token } = req.body || {};
   const session = getSession(token);
   if (!session) {
-    return res.status(404).json({ error: 'Session abgelaufen oder ungültig. Bitte PIN erneut eingeben.' });
+    return res
+      .status(404)
+      .json({ error: 'Session abgelaufen oder ungültig. Bitte PIN erneut eingeben.', code: 'session_invalid' });
   }
   if (session.step !== 'street_door_open' && session.step !== 'done') {
-    return res.status(403).json({ error: 'Die Haustür wurde noch nicht geöffnet.' });
+    return res.status(403).json({ error: 'Die Haustür wurde noch nicht geöffnet.', code: 'door_not_open' });
   }
 
   try {
@@ -149,7 +159,9 @@ app.post('/api/open-apartment-door', async (req, res) => {
     }
   } catch (err) {
     console.error('[app] Wohnungstür konnte nicht geöffnet werden:', err.message);
-    res.status(500).json({ error: 'Wohnungstür konnte nicht geöffnet werden. Bitte erneut versuchen.' });
+    res
+      .status(500)
+      .json({ error: 'Wohnungstür konnte nicht geöffnet werden. Bitte erneut versuchen.', code: 'apartment_door_failed' });
     await ha.notify(
       config.notifyService,
       `Wohnungstür für ${session.guestName} konnte NICHT geöffnet werden!`,
