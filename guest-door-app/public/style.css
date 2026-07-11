@@ -79,6 +79,14 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.guide-photo {
+  width: 100%;
+  border-radius: 12px;
+  margin: 12px 0;
+  display: block;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
 .spinner {
   margin: 24px auto;
   width: 40px;

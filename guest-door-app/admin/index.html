@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gäste-Verwaltung</title>
+<style>
+  * { box-sizing: border-box; }
+  .hidden { display: none; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f4f5f7;
+    color: #222;
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  .hint { color: #666; font-size: 0.9rem; margin-top: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    margin-top: 16px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9rem;
+  }
+  th { background: #fafafa; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  button {
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: #000dff;
+    color: #fff;
+    cursor: pointer;
+    margin-right: 4px;
+  }
+  button.secondary { background: #eee; color: #222; }
+  button.danger { background: #d33; }
+  form.editor {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  }
+  form.editor h2 { margin-top: 0; font-size: 1.1rem; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 0.85rem; margin-bottom: 4px; color: #444; }
+  .field input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+  }
+  .row { display: flex; gap: 12px; }
+  .row .field { flex: 1; }
+  .error { color: #d33; font-size: 0.85rem; min-height: 1.2em; }
+  .add-btn { margin-top: 16px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Gäste-Verwaltung</h1>
+    <p class="hint">PIN, Name und Zeitraum pro Gast. Läuft der Zeitraum ab, wird die PIN automatisch ungültig.</p>
+
+    <table>
+      <thead>
+        <tr><th>Name</th><th>PIN</th><th>Check-in</th><th>Check-out</th><th></th></tr>
+      </thead>
+      <tbody id="guest-rows"></tbody>
+    </table>
+
+    <button class="add-btn" id="add-btn">+ Gast hinzufügen</button>
+
+    <form class="editor hidden" id="editor">
+      <h2 id="editor-title">Gast hinzufügen</h2>
+      <div class="field">
+        <label for="f-name">Name</label>
+        <input type="text" id="f-name" required>
+      </div>
+      <div class="field">
+        <label for="f-pin">PIN</label>
+        <input type="text" id="f-pin" inputmode="numeric" required>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="f-checkin">Check-in</label>
+          <input type="datetime-local" id="f-checkin" required>
+        </div>
+        <div class="field">
+          <label for="f-checkout">Check-out</label>
+          <input type="datetime-local" id="f-checkout" required>
+        </div>
+      </div>
+      <p class="error" id="form-error"></p>
+      <button type="submit" id="save-btn">Speichern</button>
+      <button type="button" class="secondary" id="cancel-btn">Abbrechen</button>
+    </form>
+  </div>
+
+  <script>
+    const rowsEl = document.getElementById('guest-rows');
+    const editor = document.getElementById('editor');
+    const editorTitle = document.getElementById('editor-title');
+    const formError = document.getElementById('form-error');
+    let editingId = null;
+
+    async function api(url, options) {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Fehler (${res.status})`);
+      }
+      return res.status === 204 ? null : res.json();
+    }
+
+    function fmt(dt) {
+      if (!dt) return '';
+      return dt.replace('T', ' ');
+    }
+
+    async function loadGuests() {
+      const guests = await api('/api/admin/guests');
+      rowsEl.innerHTML = '';
+      guests.forEach((g) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(g.name)}</td>
+          <td>${escapeHtml(g.pin)}</td>
+          <td>${escapeHtml(fmt(g.checkIn))}</td>
+          <td>${escapeHtml(fmt(g.checkOut))}</td>
+          <td></td>
+        `;
+        const actionsTd = tr.querySelector('td:last-child');
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Bearbeiten';
+        editBtn.className = 'secondary';
+        editBtn.onclick = () => openEditor(g);
+        actionsTd.appendChild(editBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Löschen';
+        delBtn.className = 'danger';
+        delBtn.onclick = () => removeGuest(g);
+        actionsTd.appendChild(delBtn);
+
+        rowsEl.appendChild(tr);
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str == null ? '' : String(str);
+      return div.innerHTML;
+    }
+
+    function openEditor(guest) {
+      editingId = guest ? guest.id : null;
+      editorTitle.textContent = guest ? 'Gast bearbeiten' : 'Gast hinzufügen';
+      document.getElementById('f-name').value = guest ? guest.name : '';
+      document.getElementById('f-pin').value = guest ? guest.pin : '';
+      document.getElementById('f-checkin').value = guest ? guest.checkIn : '';
+      document.getElementById('f-checkout').value = guest ? guest.checkOut : '';
+      formError.textContent = '';
+      editor.classList.remove('hidden');
+      editor.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function closeEditor() {
+      editingId = null;
+      editor.classList.add('hidden');
+      editor.reset();
+    }
+
+    async function removeGuest(guest) {
+      if (!confirm(`"${guest.name}" wirklich löschen?`)) return;
+      await api(`/api/admin/guests/${guest.id}`, { method: 'DELETE' });
+      await loadGuests();
+    }
+
+    document.getElementById('add-btn').addEventListener('click', () => openEditor(null));
+    document.getElementById('cancel-btn').addEventListener('click', closeEditor);
+
+    editor.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      formError.textContent = '';
+      const body = {
+        name: document.getElementById('f-name').value.trim(),
+        pin: document.getElementById('f-pin').value.trim(),
+        checkIn: document.getElementById('f-checkin').value,
+        checkOut: document.getElementById('f-checkout').value,
+      };
+      try {
+        if (editingId) {
+          await api(`/api/admin/guests/${editingId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+        } else {
+          await api('/api/admin/guests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+        }
+        closeEditor();
+        await loadGuests();
+      } catch (err) {
+        formError.textContent = err.message;
+      }
+    });
+
+    loadGuests().catch((err) => {
+      rowsEl.innerHTML = `<tr><td colspan="5">Fehler beim Laden: ${escapeHtml(err.message)}</td></tr>`;
+    });
+  </script>
+</body>
+</html>

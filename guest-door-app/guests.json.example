@@ -1,0 +1,9 @@
+[
+  {
+    "id": "beispiel-1",
+    "name": "Beispiel-Gast",
+    "pin": "1234",
+    "checkIn": "2026-07-01T15:00",
+    "checkOut": "2026-07-10T11:00"
+  }
+]

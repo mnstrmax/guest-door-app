@@ -14,7 +14,7 @@ function createSession(guest) {
   const token = crypto.randomBytes(24).toString('hex');
   sessions.set(token, {
     token,
-    guestLabel: guest.label || 'Gast',
+    guestName: guest.name || 'Gast',
     step: 'await_bell',
     error: null,
     createdAt: Date.now(),

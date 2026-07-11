@@ -9,6 +9,7 @@
 <body>
   <main class="card">
     <h1>Willkommen 👋</h1>
+    <p class="hint hidden" id="guest-greeting"></p>
 
     <section id="step-pin" class="step">
       <p>Bitte gib die PIN ein, die du von deinem Gastgeber erhalten hast.</p>
@@ -22,7 +23,7 @@
 
     <section id="step-bell" class="step hidden">
       <h2>Fast geschafft!</h2>
-      <p>Bitte betätige jetzt <strong>einmal</strong> die Klingel an der Gegensprechanlage.</p>
+      <p>Bitte betätige jetzt <strong>einmal</strong> die Klingel<span id="bell-label-wrap" class="hidden"> bei <strong id="bell-label"></strong></span> an der Gegensprechanlage.</p>
       <div class="spinner"></div>
       <p class="hint">Wir warten auf dein Klingeln …</p>
       <p class="error" id="bell-error"></p>
@@ -30,7 +31,8 @@
 
     <section id="step-street-open" class="step hidden">
       <h2>Haustür ist offen! 🚪</h2>
-      <p>Bitte gehe jetzt hoch zur Wohnungstür.</p>
+      <p>Bitte gehe jetzt hoch<span id="apartment-location-wrap" class="hidden"> zu: <strong id="apartment-location"></strong></span><span id="apartment-location-fallback" class="hidden"> zur Wohnungstür</span>.</p>
+      <img src="/images/door.jpg" alt="Wohnungstür" class="guide-photo" onerror="this.style.display='none'">
       <button id="continue-btn">Weiter</button>
     </section>
 
@@ -43,7 +45,9 @@
 
     <section id="step-done" class="step hidden">
       <h2>Willkommen zuhause! 🎉</h2>
-      <p>Die Wohnungstür ist geöffnet. Wir wünschen dir einen schönen Aufenthalt.</p>
+      <p>Bitte schließe die Wohnungstür hinter dir.<span id="room-location-wrap" class="hidden"> Dein Zimmer ist: <strong id="room-location"></strong></span></p>
+      <img src="/images/room.jpg" alt="Dein Zimmer" class="guide-photo" onerror="this.style.display='none'">
+      <p>Wir wünschen dir einen schönen Aufenthalt!</p>
     </section>
   </main>
   <script src="app.js"></script>

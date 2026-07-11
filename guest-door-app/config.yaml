@@ -1,5 +1,5 @@
 name: "Guest Door App"
-version: "1.0.1"
+version: "1.1.0"
 slug: "guest_door_app"
 description: "PIN-geschützte WebApp für Airbnb-Gäste: öffnet Haustür (Ring Intercom) und Wohnungstür (Nuki) über Home Assistant."
 url: "https://github.com/mnstrmax/guest-door-app"
@@ -11,30 +11,36 @@ startup: application
 boot: auto
 init: false
 homeassistant_api: true
+map:
+  - share:rw
 ports:
   3000/tcp: 3000
 ports_description:
   3000/tcp: "Web-Oberfläche für Gäste (PIN-Eingabe)"
 webui: "http://[HOST]:[PORT:3000]/"
 options:
-  doorbell_entity_id: "binary_sensor.vordereingang_ding"
-  ring_intercom_entity_id: "lock.vordereingang_lock"
-  ring_intercom_service: "open"
-  nuki_entity_id: "lock.wohnungstuer_nuki"
+  doorbell_entity_id: "binary_sensor.your_doorbell_ding"
+  ring_intercom_entity_id: "lock.your_ring_intercom"
+  ring_intercom_service: "unlock"
+  nuki_entity_id: "lock.your_nuki_lock"
   nuki_service: "unlock"
-  guests:
-    - label: "Beispiel-Gast"
-      pin: "1234"
-      check_in: "2026-07-01T15:00:00"
-      check_out: "2026-07-10T11:00:00"
+  hallway_light_entity_id: ""
+  guestroom_light_entity_id: ""
+  bell_label: ""
+  apartment_location: ""
+  room_location: ""
+  admin_password: ""
+  notify_service: ""
 schema:
   doorbell_entity_id: "str"
   ring_intercom_entity_id: "str"
   ring_intercom_service: "list(unlock|open)"
   nuki_entity_id: "str"
   nuki_service: "list(unlock|open)"
-  guests:
-    - label: "str"
-      pin: "str"
-      check_in: "str"
-      check_out: "str"
+  hallway_light_entity_id: "str?"
+  guestroom_light_entity_id: "str?"
+  bell_label: "str?"
+  apartment_location: "str?"
+  room_location: "str?"
+  admin_password: "password"
+  notify_service: "str?"

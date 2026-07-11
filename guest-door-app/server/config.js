@@ -3,7 +3,7 @@ const path = require('path');
 
 // Erkennt automatisch, ob die App als Home Assistant Add-on läuft (Supervisor legt dann
 // /data/options.json an, gefüllt mit den Werten aus dem Konfigurations-Tab des Add-ons)
-// oder eigenständig per Docker Compose / "npm start" (Konfiguration über .env + guests.json).
+// oder eigenständig per Docker Compose / "npm start" (Konfiguration über .env).
 // Überschreibbar per Env-Var (nützlich für Tests); im Add-on immer /data/options.json.
 const ADDON_OPTIONS_FILE = process.env.ADDON_OPTIONS_FILE || '/data/options.json';
 const isAddon = fs.existsSync(ADDON_OPTIONS_FILE);
@@ -25,14 +25,27 @@ if (isAddon) {
     ringIntercomService: opts.ring_intercom_service || 'unlock',
     nukiEntityId: opts.nuki_entity_id,
     nukiService: opts.nuki_service || 'unlock',
-    // Gästeliste kommt direkt aus den Add-on-Optionen (HA-Konfigurationsseite), nicht aus einer Datei.
-    guests: (opts.guests || []).map((g) => ({
-      label: g.label,
-      pin: g.pin,
-      checkIn: g.check_in,
-      checkOut: g.check_out,
-    })),
-    guestsFile: null,
+    // Optional: Lichter, die beim Öffnen der Wohnungstür automatisch angehen.
+    hallwayLightEntityId: opts.hallway_light_entity_id || null,
+    guestroomLightEntityId: opts.guestroom_light_entity_id || null,
+    // Freitexte für die Gast-Anleitung (Klingelschild-Name, Stockwerk, Zimmer) -
+    // kommen nur aus der Add-on-Konfiguration, landen nie im Quellcode/Git.
+    bellLabel: opts.bell_label || '',
+    apartmentLocation: opts.apartment_location || '',
+    roomLocation: opts.room_location || '',
+    // Fotos liegen im Supervisor-"share"-Ordner (persistent, nicht Teil des Add-ons/Git).
+    // Lege sie dort unter guest-door-app/door.jpg bzw. guest-door-app/room.jpg ab
+    // (z.B. per Samba-Add-on, Netzlaufwerk "share").
+    imagesDir: '/share/guest-door-app',
+    // Passwort für die /admin-Seite (Gäste-Verwaltung mit Datum/Zeit-Picker).
+    adminPassword: opts.admin_password || null,
+    // Voller Name des notify-Service für Push-Benachrichtigungen an den Gastgeber,
+    // z.B. "mobile_app_iphone17_von_max" (Teil nach "notify."). Leer = keine Benachrichtigungen.
+    notifyService: opts.notify_service || '',
+    // Gäste liegen in einer persistenten JSON-Datei, verwaltet über die /admin-Seite -
+    // nicht mehr über die Add-on-Optionen (die bieten keinen Datum/Zeit-Picker).
+    guests: null,
+    guestsFile: process.env.GUESTS_FILE_OVERRIDE || '/data/guests.json',
     port: 3000,
   };
 } else {
@@ -47,13 +60,22 @@ if (isAddon) {
     ringIntercomService: process.env.RING_INTERCOM_SERVICE || 'unlock',
     nukiEntityId: process.env.NUKI_ENTITY_ID,
     nukiService: process.env.NUKI_SERVICE || 'unlock',
+    hallwayLightEntityId: process.env.HALLWAY_LIGHT_ENTITY_ID || null,
+    guestroomLightEntityId: process.env.GUESTROOM_LIGHT_ENTITY_ID || null,
+    bellLabel: process.env.BELL_LABEL || '',
+    apartmentLocation: process.env.APARTMENT_LOCATION || '',
+    roomLocation: process.env.ROOM_LOCATION || '',
+    // Lokaler Ordner außerhalb von public/ - per .gitignore ausgeschlossen, landet nie im Repo.
+    imagesDir: path.join(__dirname, '..', 'images'),
+    adminPassword: process.env.ADMIN_PASSWORD || null,
+    notifyService: process.env.NOTIFY_SERVICE || '',
     guests: null,
     guestsFile: path.join(__dirname, '..', 'guests.json'),
     port: process.env.PORT || 3000,
   };
 }
 
-const REQUIRED = ['haUrl', 'haToken', 'doorbellEntityId', 'ringIntercomEntityId', 'nukiEntityId'];
+const REQUIRED = ['haUrl', 'haToken', 'doorbellEntityId', 'ringIntercomEntityId', 'nukiEntityId', 'adminPassword'];
 for (const key of REQUIRED) {
   if (!config[key]) {
     console.error(

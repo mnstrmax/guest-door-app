@@ -5,7 +5,42 @@ function showStep(id) {
   steps.forEach((s) => el(s).classList.toggle('hidden', s !== id));
 }
 
+function applyGuestTexts(data) {
+  if (data.guestName) {
+    el('guest-greeting').textContent = `Hallo ${data.guestName}!`;
+    el('guest-greeting').classList.remove('hidden');
+  }
+
+  const bellWrap = el('bell-label-wrap');
+  if (data.bellLabel) {
+    el('bell-label').textContent = `„${data.bellLabel}“`;
+    bellWrap.classList.remove('hidden');
+  } else {
+    bellWrap.classList.add('hidden');
+  }
+
+  const aptWrap = el('apartment-location-wrap');
+  const aptFallback = el('apartment-location-fallback');
+  if (data.apartmentLocation) {
+    el('apartment-location').textContent = data.apartmentLocation;
+    aptWrap.classList.remove('hidden');
+    aptFallback.classList.add('hidden');
+  } else {
+    aptWrap.classList.add('hidden');
+    aptFallback.classList.remove('hidden');
+  }
+
+  const roomWrap = el('room-location-wrap');
+  if (data.roomLocation) {
+    el('room-location').textContent = data.roomLocation;
+    roomWrap.classList.remove('hidden');
+  } else {
+    roomWrap.classList.add('hidden');
+  }
+}
+
 let token = sessionStorage.getItem('guestToken') || null;
+let guestTexts = JSON.parse(sessionStorage.getItem('guestTexts') || 'null');
 let pollTimer = null;
 
 el('pin-form').addEventListener('submit', async (e) => {
@@ -25,7 +60,10 @@ el('pin-form').addEventListener('submit', async (e) => {
       return;
     }
     token = data.token;
+    guestTexts = data;
     sessionStorage.setItem('guestToken', token);
+    sessionStorage.setItem('guestTexts', JSON.stringify(data));
+    applyGuestTexts(data);
     showStep('step-bell');
     startPolling();
   } catch (err) {
@@ -77,6 +115,7 @@ el('apartment-btn').addEventListener('click', async () => {
       return;
     }
     sessionStorage.removeItem('guestToken');
+    sessionStorage.removeItem('guestTexts');
     showStep('step-done');
   } catch (err) {
     el('apartment-error').textContent = 'Verbindung zum Server fehlgeschlagen.';
@@ -87,12 +126,14 @@ el('apartment-btn').addEventListener('click', async () => {
 function resetToPinStep(message) {
   token = null;
   sessionStorage.removeItem('guestToken');
+  sessionStorage.removeItem('guestTexts');
   el('pin-error').textContent = message || '';
   showStep('step-pin');
 }
 
 // Falls die Seite neu geladen wurde, aber noch ein gültiges Token existiert: Polling fortsetzen.
 if (token) {
+  if (guestTexts) applyGuestTexts(guestTexts);
   showStep('step-bell');
   startPolling();
 }

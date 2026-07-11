@@ -71,14 +71,14 @@ class HAClient {
     });
   }
 
-  async callService(domain, service, entityId) {
+  async callService(domain, service, body) {
     const res = await fetch(`${this.baseUrl}/api/services/${domain}/${service}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ entity_id: entityId }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const text = await res.text();
@@ -88,11 +88,31 @@ class HAClient {
   }
 
   async unlockRingIntercom(entityId, service = 'unlock') {
-    return this.callService('lock', service, entityId);
+    return this.callService('lock', service, { entity_id: entityId });
   }
 
   async unlockNuki(entityId, service = 'unlock') {
-    return this.callService('lock', service, entityId);
+    return this.callService('lock', service, { entity_id: entityId });
+  }
+
+  async turnOnLights(entityIds) {
+    if (!entityIds || entityIds.length === 0) return;
+    return this.callService('light', 'turn_on', { entity_id: entityIds });
+  }
+
+  /**
+   * Schickt eine Push-Benachrichtigung an den Gastgeber, z.B. über die HA-Companion-App
+   * (notifyService ist der Teil nach "notify.", z.B. "mobile_app_iphone17_von_max").
+   * Best-effort: wenn nicht konfiguriert oder der Aufruf fehlschlägt, wird nichts geworfen -
+   * eine fehlende Benachrichtigung soll niemals den eigentlichen Türvorgang blockieren.
+   */
+  async notify(notifyService, message, title) {
+    if (!notifyService) return;
+    try {
+      await this.callService('notify', notifyService, { message, title });
+    } catch (err) {
+      console.error('[HA] Benachrichtigung konnte nicht gesendet werden:', err.message);
+    }
   }
 }
 
