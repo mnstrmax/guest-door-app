@@ -8,6 +8,26 @@ const path = require('path');
 const ADDON_OPTIONS_FILE = process.env.ADDON_OPTIONS_FILE || '/data/options.json';
 const isAddon = fs.existsSync(ADDON_OPTIONS_FILE);
 
+// Der Supervisor bindet den echten Home-Assistant-Konfigurationsordner (map:
+// "homeassistant_config") historisch/dokumentationsabhängig entweder unter /homeassistant
+// oder /config in den Container ein. Statt das fest zu verdrahten, wird zur Laufzeit
+// geprüft, wo der von uns erwartete Unterordner tatsächlich liegt - vermeidet stille
+// Fehlkonfiguration, falls sich das je nach Supervisor-Version unterscheidet.
+function resolveImagesDir() {
+  if (process.env.IMAGES_DIR_OVERRIDE) return process.env.IMAGES_DIR_OVERRIDE;
+  const candidates = ['/homeassistant/guest-door-app-images', '/config/guest-door-app-images'];
+  const found = candidates.find((p) => fs.existsSync(p));
+  if (found) {
+    console.log(`[config] Bilder-Ordner gefunden: ${found}`);
+    return found;
+  }
+  console.warn(
+    `[config] Keiner der erwarteten Bilder-Ordner existiert (geprüft: ${candidates.join(', ')}). ` +
+      'Fotos werden ausgeblendet, bis der Ordner angelegt ist.'
+  );
+  return candidates[0];
+}
+
 let config;
 
 if (isAddon) {
@@ -33,10 +53,10 @@ if (isAddon) {
     bellLabel: opts.bell_label || '',
     apartmentLocation: opts.apartment_location || '',
     roomLocation: opts.room_location || '',
-    // Fotos liegen in einem Unterordner von /config (nicht Teil des Add-ons/Git), damit
-    // sie über den vorhandenen "File editor"-Add-on hochgeladen werden können.
-    // Lege sie dort unter door.jpg bzw. room.jpg ab.
-    imagesDir: process.env.IMAGES_DIR_OVERRIDE || '/config/guest-door-app-images',
+    // Fotos liegen in einem Unterordner des HA-Konfigurationsordners (nicht Teil des
+    // Add-ons/Git), damit sie über den vorhandenen "File editor"-Add-on hochgeladen
+    // werden können. Lege sie dort unter door.jpg bzw. room.jpg ab.
+    imagesDir: resolveImagesDir(),
     // Passwort für die /admin-Seite (Gäste-Verwaltung mit Datum/Zeit-Picker).
     adminPassword: opts.admin_password || null,
     // Voller Name des notify-Service für Push-Benachrichtigungen an den Gastgeber,

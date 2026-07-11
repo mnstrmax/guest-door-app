@@ -8,24 +8,34 @@ const { createSession, getSession, updateSession, sessionsAwaitingBell } = requi
 const { isRateLimited, recordAttempt, resetAttempts } = require('./rateLimiter');
 
 console.log(`[app] Starte im Modus: ${config.mode}`);
+console.log(`[app] imagesDir = ${config.imagesDir} (existiert: ${fs.existsSync(config.imagesDir)})`);
+if (fs.existsSync(config.imagesDir)) {
+  console.log(`[app] Inhalt: ${fs.readdirSync(config.imagesDir).join(', ') || '(leer)'}`);
+}
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Bilder (Wohnungstür/Zimmer) liegen bewusst NICHT im Git-Repo, sondern nur lokal
-// (Add-on: /share/guest-door-app, Standalone: images/-Ordner, per .gitignore ausgeschlossen).
-// Fehlt eine Datei, liefert die Route 404 - das Frontend blendet das Bild dann einfach aus.
+// (Add-on: /config/guest-door-app-images, Standalone: images/-Ordner, per .gitignore
+// ausgeschlossen). Fehlt eine Datei, liefert die Route 404 - das Frontend blendet das
+// Bild dann einfach aus. Die tatsächliche Dateiendung ist egal (.jpg/.jpeg/.png) -
+// es zählt nur der Name vor dem Punkt (z.B. "door"), damit z.B. iPhone-Fotos mit
+// .jpeg-Endung nicht extra umbenannt werden müssen.
 app.get('/images/:file', (req, res) => {
-  const file = req.params.file;
-  if (!/^[a-zA-Z0-9_-]+\.(jpg|jpeg|png)$/i.test(file)) {
+  const match = /^([a-zA-Z0-9_-]+)\.(jpg|jpeg|png)$/i.exec(req.params.file);
+  if (!match) {
     return res.status(400).end();
   }
-  const filePath = path.join(config.imagesDir, file);
-  if (!fs.existsSync(filePath)) {
+  const base = match[1];
+  const candidate = ['jpg', 'jpeg', 'png']
+    .map((ext) => path.join(config.imagesDir, `${base}.${ext}`))
+    .find((p) => fs.existsSync(p));
+  if (!candidate) {
     return res.status(404).end();
   }
-  res.sendFile(filePath);
+  res.sendFile(candidate);
 });
 
 const ha = new HAClient({
