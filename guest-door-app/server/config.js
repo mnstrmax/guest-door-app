@@ -62,6 +62,11 @@ if (isAddon) {
     // Voller Name des notify-Service für Push-Benachrichtigungen an den Gastgeber,
     // z.B. "mobile_app_iphone17_von_max" (Teil nach "notify."). Leer = keine Benachrichtigungen.
     notifyService: opts.notify_service || '',
+    // Optionaler input_boolean-Helfer: wird auf "on" gesetzt, solange die App auf ein
+    // Klingeln wartet, und wieder auf "off", sobald das erledigt ist. Damit können eigene
+    // HA-Automationen (z.B. eine allgemeine Klingel-Benachrichtigung) erkennen, dass die
+    // App das Klingeln bereits selbst verarbeitet, und in dem Moment stumm bleiben.
+    appActiveEntityId: opts.app_active_entity_id || null,
     // Gäste liegen in einer persistenten JSON-Datei, verwaltet über die /admin-Seite -
     // nicht mehr über die Add-on-Optionen (die bieten keinen Datum/Zeit-Picker).
     guests: null,
@@ -89,6 +94,7 @@ if (isAddon) {
     imagesDir: path.join(__dirname, '..', 'images'),
     adminPassword: process.env.ADMIN_PASSWORD || null,
     notifyService: process.env.NOTIFY_SERVICE || '',
+    appActiveEntityId: process.env.APP_ACTIVE_ENTITY_ID || null,
     guests: null,
     guestsFile: path.join(__dirname, '..', 'guests.json'),
     port: process.env.PORT || 3000,

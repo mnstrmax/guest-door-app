@@ -15,7 +15,16 @@ if (fs.existsSync(config.imagesDir)) {
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// no-cache statt Standard-Heuristik: Browser fragt bei jedem Laden per ETag beim
+// Server nach, statt eine ggf. veraltete Kopie von index.html/app.js/i18n.js aus dem
+// eigenen Cache zu verwenden (wichtig, damit Updates sofort ankommen, z.B. nach
+// Sprach-Feature). Kostet praktisch nichts, da bei unveränderten Dateien nur ein
+// schneller 304-Response zurückkommt.
+app.use(
+  express.static(path.join(__dirname, '..', 'public'), {
+    setHeaders: (res) => res.set('Cache-Control', 'no-cache'),
+  })
+);
 
 // Bilder (Wohnungstür/Zimmer) liegen bewusst NICHT im Git-Repo, sondern nur lokal
 // (Add-on: /config/guest-door-app-images, Standalone: images/-Ordner, per .gitignore
@@ -72,6 +81,9 @@ const ha = new HAClient({
         );
       }
     }
+    // Neu berechnen statt fest "off" setzen: bei Fehlschlag bleibt die Session weiterhin
+    // "await_bell" (Gast klingelt evtl. erneut), der Helfer soll dann "on" bleiben.
+    syncAppActiveHelper();
   },
 });
 ha.connect();
@@ -79,6 +91,18 @@ ha.connect();
 function getClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
 }
+
+// Hält den optionalen input_boolean-Helfer (falls konfiguriert) synchron zum tatsächlichen
+// Zustand: "on", solange mindestens eine Session auf ein Klingeln wartet, sonst "off". Wird
+// nach jeder relevanten Änderung UND regelmäßig als Sicherheitsnetz aufgerufen, damit der
+// Helfer nicht dauerhaft "on" hängen bleibt, falls ein Gast nie klingelt und die Session nach
+// 2 Stunden still verfällt (ohne eigenes Cleanup-Ereignis).
+function syncAppActiveHelper() {
+  if (!config.appActiveEntityId) return;
+  const active = sessionsAwaitingBell().length > 0;
+  ha.setInputBoolean(config.appActiveEntityId, active);
+}
+setInterval(syncAppActiveHelper, 60 * 1000);
 
 app.post('/api/verify-pin', async (req, res) => {
   const ip = getClientIp(req);
@@ -99,6 +123,7 @@ app.post('/api/verify-pin', async (req, res) => {
 
   resetAttempts(ip);
   const token = createSession(guest);
+  syncAppActiveHelper();
   res.json({
     token,
     guestName: guest.name || 'Gast',

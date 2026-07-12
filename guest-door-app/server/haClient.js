@@ -101,6 +101,21 @@ class HAClient {
   }
 
   /**
+   * Setzt einen input_boolean-Helfer, mit dem eigene HA-Automationen erkennen können,
+   * dass die App gerade selbst auf ein Klingeln wartet (z.B. um eine parallele
+   * Klingel-Automation für diesen Moment stummzuschalten). Best-effort: Fehler landen
+   * nur im Log, blockieren nie den eigentlichen Tür-Ablauf.
+   */
+  async setInputBoolean(entityId, on) {
+    if (!entityId) return;
+    try {
+      await this.callService('input_boolean', on ? 'turn_on' : 'turn_off', { entity_id: entityId });
+    } catch (err) {
+      console.error('[HA] App-Aktiv-Helfer konnte nicht gesetzt werden:', err.message);
+    }
+  }
+
+  /**
    * Schickt eine Push-Benachrichtigung an den Gastgeber, z.B. über die HA-Companion-App
    * (notifyService ist der Teil nach "notify.", z.B. "mobile_app_iphone17_von_max").
    * Best-effort: wenn nicht konfiguriert oder der Aufruf fehlschlägt, wird nichts geworfen -

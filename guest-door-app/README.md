@@ -38,6 +38,31 @@ die Zimmer-Beschreibung landen **nie im Git-Repository** – sonst wären sie au
 - Texte (`bell_label`, `apartment_location`, `room_location`): nur über die
   Add-on-Konfiguration bzw. `.env` gesetzt, nie im Quellcode.
 
+## Eigene Klingel-Automation nicht doppelt benachrichtigen lassen
+
+Wenn du zusätzlich eine eigene HA-Automation hast, die bei jedem Klingeln (unabhängig
+von dieser App) eine Push-Nachricht schickt, würde die auch dann auslösen, wenn ein
+Gast über die App klingelt – die App reagiert auf denselben Sensor. Um das zu
+vermeiden:
+
+1. In Home Assistant unter **Einstellungen → Geräte & Dienste → Helfer** einen neuen
+   **Ein/Aus-Schalter** (`input_boolean`) anlegen, z. B. `input_boolean.gastapp_wartet_auf_klingel`.
+2. Diese Entity-ID bei `app_active_entity_id` in der Add-on-Konfiguration eintragen.
+   Die App setzt sie automatisch auf `on`, solange sie auf ein Klingeln wartet, und
+   wieder auf `off`, sobald das erledigt ist (mit Sicherheitsnetz, falls ein Gast nie
+   klingelt).
+3. In deiner eigenen Automation als zusätzliche Bedingung ergänzen:
+
+   ```yaml
+   conditions:
+     - condition: state
+       entity_id: input_boolean.gastapp_wartet_auf_klingel
+       state: "off"
+   ```
+
+   Dann feuert deine Automation nur noch bei "organischen" Klingeln (Postbote, Besuch
+   ohne App), nicht wenn die App selbst gerade einen Gast durchlässt.
+
 ## Ablauf
 
 1. Gast öffnet die Seite und gibt seine PIN ein. Bei Erfolg wird er mit Namen begrüßt,
@@ -117,10 +142,11 @@ Add-on Store → ⋮ → Repositories**. Danach direkt mit Schritt 3 unten weite
    `ring_intercom_service`, `nuki_entity_id`, `nuki_service`, `admin_password`
    (Pflicht – schützt die Gäste-Verwaltung), optional
    `hallway_light_entity_id`/`guestroom_light_entity_id`, `bell_label`,
-   `apartment_location`, `room_location` sowie `notify_service` (z. B.
-   `mobile_app_iphone17_von_max` für Push-Benachrichtigungen) – alles direkt über die
-   HA-Oberfläche, kein manuelles Token nötig (der Supervisor stellt automatisch
-   Zugriff auf die Core-API bereit).
+   `apartment_location`, `room_location`, `notify_service` (z. B.
+   `mobile_app_iphone17_von_max` für Push-Benachrichtigungen) sowie
+   `app_active_entity_id` (siehe Abschnitt "Eigene Klingel-Automation nicht doppelt
+   benachrichtigen lassen") – alles direkt über die HA-Oberfläche, kein manuelles Token
+   nötig (der Supervisor stellt automatisch Zugriff auf die Core-API bereit).
 5. Add-on **starten**. Web-UI unter `http://<home-assistant-ip>:3000`, Gäste-Verwaltung
    unter `http://<home-assistant-ip>:3000/admin` (Login mit beliebigem Benutzernamen,
    Passwort = `admin_password`).
