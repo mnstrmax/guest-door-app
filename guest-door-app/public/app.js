@@ -35,12 +35,12 @@ function render() {
       el('guest-greeting').classList.remove('hidden');
     }
     el('bell-text').textContent = T.bellText(guestTexts.bellLabel);
-    el('street-open-text').textContent = T.streetOpenText(guestTexts.apartmentLocation);
-    el('done-text').textContent = T.doneText(guestTexts.roomLocation);
+    el('street-open-text').textContent = T.streetOpenText(guestTexts.apartmentFloor, guestTexts.apartmentSide);
+    el('done-text').textContent = T.doneText(guestTexts.roomNumber, guestTexts.roomSide);
   } else {
     el('bell-text').textContent = T.bellText('');
-    el('street-open-text').textContent = T.streetOpenText('');
-    el('done-text').textContent = T.doneText('');
+    el('street-open-text').textContent = T.streetOpenText(null, null);
+    el('done-text').textContent = T.doneText(null, null);
   }
 
   document.querySelectorAll('#lang-switcher button').forEach((btn) => {

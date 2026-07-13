@@ -127,11 +127,15 @@ app.post('/api/verify-pin', async (req, res) => {
   res.json({
     token,
     guestName: guest.name || 'Gast',
-    // Diese Texte kommen nur aus der Add-on-/​.env-Konfiguration, nie aus dem Quellcode -
-    // erst nach erfolgreicher PIN-Prüfung ausgeliefert.
+    // Diese Werte kommen nur aus der Add-on-/​.env-Konfiguration, nie aus dem Quellcode -
+    // erst nach erfolgreicher PIN-Prüfung ausgeliefert. bellLabel ist ein Eigenname und
+    // bleibt unübersetzt; apartmentFloor/apartmentSide/roomNumber/roomSide sind strukturiert,
+    // damit das Frontend sie in jeder Sprache korrekt übersetzt einbauen kann.
     bellLabel: config.bellLabel,
-    apartmentLocation: config.apartmentLocation,
-    roomLocation: config.roomLocation,
+    apartmentFloor: config.apartmentFloor,
+    apartmentSide: config.apartmentSide,
+    roomNumber: config.roomNumber,
+    roomSide: config.roomSide,
   });
 
   await ha.notify(config.notifyService, `${guest.name || 'Ein Gast'} hat sich mit der PIN angemeldet.`, 'Guest Door App');

@@ -12,11 +12,22 @@ zusätzlich gibt es oben auf der Seite einen manuellen Umschalter (DE/EN/FR/ES).
 Übersetzungen liegen in `public/i18n.js`. Die `/admin`-Seite bleibt bewusst nur
 Deutsch (nur für dich als Gastgeber gedacht).
 
-Die frei konfigurierbaren Texte (`bell_label`, `apartment_location`, `room_location`)
-werden **nicht** automatisch übersetzt – sie erscheinen in jeder Sprache so, wie du sie
-in der Add-on-Konfiguration eingetragen hast. Tipp: kurz und möglichst sprachneutral
-halten (z. B. Eigennamen, Zahlen) oder bewusst weglassen, dann fällt die App auf
-generische, bereits übersetzte Standardsätze zurück.
+`bell_label` (der Name auf dem Klingelschild) ist ein Eigenname und wird **nicht**
+übersetzt – er erscheint in jeder Sprache unverändert. Stockwerk und Zimmer werden
+dagegen **nicht** als Freitext eingetragen, sondern strukturiert (`apartment_floor`,
+`apartment_side`, `room_number`, `room_side` – siehe Konfigurationsschritte unten).
+Daraus baut die App in jeder Sprache automatisch einen korrekt übersetzten Satz,
+z. B. "3. Obergeschoss rechts" / "3rd floor, on the right" / "3e étage, à droite" /
+"3ª planta, a la derecha". Lässt du sie leer, fällt die App auf generische Sätze ohne
+diese Details zurück.
+
+## ⚠️ Update auf 1.4.0: Stockwerk/Zimmer jetzt strukturiert statt Freitext
+
+Die Optionen `apartment_location` und `room_location` gibt es nicht mehr. Stattdessen:
+`apartment_floor`, `apartment_side`, `room_number`, `room_side` (siehe Abschnitt
+"Fotos & persönliche Texte"). Grund: nur so kann die App die Angabe in jeder Sprache
+korrekt übersetzen. **Nach dem Update müssen diese vier Felder im Konfigurations-Tab
+einmalig neu eingetragen werden**, die alten Freitext-Werte werden nicht übernommen.
 
 ## ⚠️ Update auf 1.1.0: Gäste-Verwaltung geändert
 
@@ -35,8 +46,8 @@ die Zimmer-Beschreibung landen **nie im Git-Repository** – sonst wären sie au
 - Fotos: lokal ablegen (Add-on: `/config/guest-door-app-images/`, z. B. per "File editor"-
   Add-on hochladbar; Standalone: `images/`-Ordner im Projekt, per `.gitignore`
   ausgeschlossen) – siehe `images/README.md`.
-- Texte (`bell_label`, `apartment_location`, `room_location`): nur über die
-  Add-on-Konfiguration bzw. `.env` gesetzt, nie im Quellcode.
+- Texte/Werte (`bell_label`, `apartment_floor`, `apartment_side`, `room_number`,
+  `room_side`): nur über die Add-on-Konfiguration bzw. `.env` gesetzt, nie im Quellcode.
 
 ## Eigene Klingel-Automation nicht doppelt benachrichtigen lassen
 
@@ -142,7 +153,9 @@ Add-on Store → ⋮ → Repositories**. Danach direkt mit Schritt 3 unten weite
    `ring_intercom_service`, `nuki_entity_id`, `nuki_service`, `admin_password`
    (Pflicht – schützt die Gäste-Verwaltung), optional
    `hallway_light_entity_id`/`guestroom_light_entity_id`, `bell_label`,
-   `apartment_location`, `room_location`, `notify_service` (z. B.
+   `apartment_floor` (Zahl, 0 = Erdgeschoss), `apartment_side`
+   (`links`/`rechts`/`mitte`, auch `left`/`right`/`middle`), `room_number` (Zahl) und
+   `room_side` (wie `apartment_side`), `notify_service` (z. B.
    `mobile_app_iphone17_von_max` für Push-Benachrichtigungen) sowie
    `app_active_entity_id` (siehe Abschnitt "Eigene Klingel-Automation nicht doppelt
    benachrichtigen lassen") – alles direkt über die HA-Oberfläche, kein manuelles Token

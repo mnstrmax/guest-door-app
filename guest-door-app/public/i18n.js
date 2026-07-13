@@ -2,6 +2,26 @@
 // (nur für den Gastgeber gedacht).
 const SUPPORTED_LANGS = ['de', 'en', 'fr', 'es'];
 
+// Stockwerk (apartmentFloor/roomNumber) und Seite (apartmentSide/roomSide) kommen als
+// strukturierte Werte vom Server (kein Freitext mehr) - so kann jede Sprache eine
+// korrekt formulierte, in den Fließtext eingebettete Anleitung daraus bauen, statt
+// einen unübersetzten String anzuhängen. "side" ist 'left' | 'right' | 'middle' | null.
+
+function ordinalEn(n) {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
 const TRANSLATIONS = {
   de: {
     title: 'Willkommen 👋',
@@ -15,15 +35,30 @@ const TRANSLATIONS = {
         : 'Bitte betätige jetzt einmal die Klingel an der Gegensprechanlage.',
     bellWaiting: 'Wir warten auf dein Klingeln …',
     streetOpenTitle: 'Haustür ist offen! 🚪',
-    streetOpenText: (loc) =>
-      loc ? `Bitte gehe jetzt hoch zu: ${loc}.` : 'Bitte gehe jetzt hoch zur Wohnungstür.',
+    streetOpenText: (floor, side) => {
+      const sideWord = side === 'left' ? 'links' : side === 'right' ? 'rechts' : side === 'middle' ? 'mittig' : '';
+      if (floor == null && !sideWord) return 'Bitte gehe jetzt hoch zur Wohnungstür.';
+      if (floor != null) {
+        const floorClause = floor === 0 ? 'ins Erdgeschoss' : `ins ${floor}. Obergeschoss`;
+        return `Bitte gehe jetzt hoch ${floorClause}${sideWord ? ' ' + sideWord : ''}.`;
+      }
+      return `Bitte gehe jetzt hoch zur Wohnungstür (${sideWord}).`;
+    },
     continueBtn: 'Weiter',
     apartmentTitle: 'Wohnungstür öffnen',
     apartmentIntro: 'Das ist deine Wohnungstür. Drücke den Button, sobald du davor stehst.',
     apartmentBtn: 'Wohnungstür öffnen',
     doneTitle: 'Willkommen zuhause! 🎉',
-    doneText: (loc) =>
-      'Bitte schließe die Wohnungstür hinter dir.' + (loc ? ` Dein Zimmer ist: ${loc}.` : ''),
+    doneText: (roomNumber, roomSide) => {
+      const base = 'Bitte schließe die Wohnungstür hinter dir.';
+      const sideWord =
+        roomSide === 'left' ? 'links' : roomSide === 'right' ? 'rechts' : roomSide === 'middle' ? 'mittig' : '';
+      if (roomNumber == null && !sideWord) return base;
+      if (roomNumber != null) {
+        return `${base} Dein Zimmer ist das ${roomNumber}. Zimmer${sideWord ? ' ' + sideWord : ''}.`;
+      }
+      return `${base} Dein Zimmer liegt ${sideWord}.`;
+    },
     doneFooter: 'Wir wünschen dir einen schönen Aufenthalt!',
     errors: {
       network: 'Verbindung zum Server fehlgeschlagen.',
@@ -49,15 +84,30 @@ const TRANSLATIONS = {
         : 'Please ring the doorbell once on the intercom.',
     bellWaiting: 'Waiting for your ring …',
     streetOpenTitle: 'Front door is open! 🚪',
-    streetOpenText: (loc) =>
-      loc ? `Please head up now to: ${loc}.` : 'Please head up to the apartment door now.',
+    streetOpenText: (floor, side) => {
+      const sidePhrase = side === 'left' ? 'on the left' : side === 'right' ? 'on the right' : side === 'middle' ? 'in the middle' : '';
+      if (floor == null && !sidePhrase) return 'Please head up to the apartment door now.';
+      if (floor != null) {
+        const floorClause = floor === 0 ? 'the ground floor' : `the ${ordinalEn(floor)} floor`;
+        return `Please head up to ${floorClause}${sidePhrase ? ', ' + sidePhrase : ''}.`;
+      }
+      return `Please head up to the apartment door, ${sidePhrase}.`;
+    },
     continueBtn: 'Continue',
     apartmentTitle: 'Open apartment door',
     apartmentIntro: 'This is your apartment door. Press the button once you are standing in front of it.',
     apartmentBtn: 'Open apartment door',
     doneTitle: 'Welcome home! 🎉',
-    doneText: (loc) =>
-      'Please close the apartment door behind you.' + (loc ? ` Your room is: ${loc}.` : ''),
+    doneText: (roomNumber, roomSide) => {
+      const base = 'Please close the apartment door behind you.';
+      const sidePhrase =
+        roomSide === 'left' ? 'on the left' : roomSide === 'right' ? 'on the right' : roomSide === 'middle' ? 'in the middle' : '';
+      if (roomNumber == null && !sidePhrase) return base;
+      if (roomNumber != null) {
+        return `${base} Your room is the ${ordinalEn(roomNumber)} room${sidePhrase ? ', ' + sidePhrase : ''}.`;
+      }
+      return `${base} Your room is ${sidePhrase}.`;
+    },
     doneFooter: 'We wish you a pleasant stay!',
     errors: {
       network: 'Could not connect to the server.',
@@ -83,17 +133,31 @@ const TRANSLATIONS = {
         : "Merci de sonner une fois à l'interphone.",
     bellWaiting: 'En attente de votre sonnette…',
     streetOpenTitle: "La porte d'entrée est ouverte ! 🚪",
-    streetOpenText: (loc) =>
-      loc
-        ? `Merci de monter maintenant jusqu'à : ${loc}.`
-        : "Merci de monter maintenant jusqu'à la porte de l'appartement.",
+    streetOpenText: (floor, side) => {
+      const sidePhrase = side === 'left' ? 'à gauche' : side === 'right' ? 'à droite' : side === 'middle' ? 'au milieu' : '';
+      if (floor == null && !sidePhrase) return "Merci de monter maintenant jusqu'à la porte de l'appartement.";
+      if (floor != null) {
+        const floorClause = floor === 0 ? "jusqu'au rez-de-chaussée" : `jusqu'au ${floor === 1 ? '1er' : floor + 'e'} étage`;
+        return `Merci de monter maintenant ${floorClause}${sidePhrase ? ', ' + sidePhrase : ''}.`;
+      }
+      return `Merci de monter maintenant jusqu'à la porte de l'appartement, ${sidePhrase}.`;
+    },
     continueBtn: 'Continuer',
     apartmentTitle: "Ouvrir la porte de l'appartement",
     apartmentIntro: "Voici la porte de votre appartement. Appuyez sur le bouton une fois que vous êtes devant.",
     apartmentBtn: 'Ouvrir la porte',
     doneTitle: 'Bienvenue chez vous ! 🎉',
-    doneText: (loc) =>
-      "Merci de refermer la porte de l'appartement derrière vous." + (loc ? ` Votre chambre est : ${loc}.` : ''),
+    doneText: (roomNumber, roomSide) => {
+      const base = "Merci de refermer la porte de l'appartement derrière vous.";
+      const sidePhrase =
+        roomSide === 'left' ? 'à gauche' : roomSide === 'right' ? 'à droite' : roomSide === 'middle' ? 'au milieu' : '';
+      if (roomNumber == null && !sidePhrase) return base;
+      if (roomNumber != null) {
+        const ord = roomNumber === 1 ? '1re' : `${roomNumber}e`;
+        return `${base} Ta chambre est la ${ord} chambre${sidePhrase ? ', ' + sidePhrase : ''}.`;
+      }
+      return `${base} Ta chambre est ${sidePhrase}.`;
+    },
     doneFooter: 'Nous vous souhaitons un excellent séjour !',
     errors: {
       network: 'Échec de la connexion au serveur.',
@@ -119,15 +183,30 @@ const TRANSLATIONS = {
         : 'Por favor, toca una vez el timbre del portero automático.',
     bellWaiting: 'Esperando a que toques el timbre…',
     streetOpenTitle: '¡La puerta de la calle está abierta! 🚪',
-    streetOpenText: (loc) =>
-      loc ? `Sube ahora hasta: ${loc}.` : 'Sube ahora hasta la puerta del apartamento.',
+    streetOpenText: (floor, side) => {
+      const sidePhrase = side === 'left' ? 'a la izquierda' : side === 'right' ? 'a la derecha' : side === 'middle' ? 'en el medio' : '';
+      if (floor == null && !sidePhrase) return 'Sube ahora hasta la puerta del apartamento.';
+      if (floor != null) {
+        const floorClause = floor === 0 ? 'hasta la planta baja' : `hasta la ${floor}ª planta`;
+        return `Sube ahora ${floorClause}${sidePhrase ? ', ' + sidePhrase : ''}.`;
+      }
+      return `Sube ahora hasta la puerta del apartamento, ${sidePhrase}.`;
+    },
     continueBtn: 'Continuar',
     apartmentTitle: 'Abrir la puerta del apartamento',
     apartmentIntro: 'Esta es la puerta de tu apartamento. Pulsa el botón en cuanto estés delante de ella.',
     apartmentBtn: 'Abrir la puerta',
     doneTitle: '¡Bienvenido a casa! 🎉',
-    doneText: (loc) =>
-      'Cierra la puerta del apartamento detrás de ti.' + (loc ? ` Tu habitación es: ${loc}.` : ''),
+    doneText: (roomNumber, roomSide) => {
+      const base = 'Cierra la puerta del apartamento detrás de ti.';
+      const sidePhrase =
+        roomSide === 'left' ? 'a la izquierda' : roomSide === 'right' ? 'a la derecha' : roomSide === 'middle' ? 'en el medio' : '';
+      if (roomNumber == null && !sidePhrase) return base;
+      if (roomNumber != null) {
+        return `${base} Tu habitación es la ${roomNumber}ª habitación${sidePhrase ? ', ' + sidePhrase : ''}.`;
+      }
+      return `${base} Tu habitación está ${sidePhrase}.`;
+    },
     doneFooter: '¡Que disfrutes de tu estancia!',
     errors: {
       network: 'No se pudo conectar con el servidor.',

@@ -28,6 +28,33 @@ function resolveImagesDir() {
   return candidates[0];
 }
 
+// Stockwerk/Zimmer-Nummer und Seite (links/rechts/mittig) werden strukturiert statt als
+// Freitext konfiguriert. So kann jede Sprache im Frontend eine korrekt übersetzte,
+// grammatikalisch passende Anleitung daraus bauen (z.B. "3rd floor, on the right" /
+// "au 3e étage, à droite"), statt einen unübersetzten deutschen String anzuzeigen.
+function normalizeInt(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+const SIDE_MAP = {
+  left: 'left',
+  links: 'left',
+  l: 'left',
+  right: 'right',
+  rechts: 'right',
+  r: 'right',
+  middle: 'middle',
+  mitte: 'middle',
+  mittig: 'middle',
+  m: 'middle',
+};
+function normalizeSide(v) {
+  if (!v) return null;
+  return SIDE_MAP[String(v).trim().toLowerCase()] || null;
+}
+
 let config;
 
 if (isAddon) {
@@ -48,11 +75,15 @@ if (isAddon) {
     // Optional: Lichter, die beim Öffnen der Wohnungstür automatisch angehen.
     hallwayLightEntityId: opts.hallway_light_entity_id || null,
     guestroomLightEntityId: opts.guestroom_light_entity_id || null,
-    // Freitexte für die Gast-Anleitung (Klingelschild-Name, Stockwerk, Zimmer) -
-    // kommen nur aus der Add-on-Konfiguration, landen nie im Quellcode/Git.
+    // Klingelschild-Name (Eigenname, bleibt unübersetzt) kommt nur aus der
+    // Add-on-Konfiguration, landet nie im Quellcode/Git.
     bellLabel: opts.bell_label || '',
-    apartmentLocation: opts.apartment_location || '',
-    roomLocation: opts.room_location || '',
+    // Stockwerk/Zimmer strukturiert statt Freitext, damit das Frontend daraus in jeder
+    // Sprache eine korrekt übersetzte Anleitung bauen kann (siehe normalizeInt/normalizeSide).
+    apartmentFloor: normalizeInt(opts.apartment_floor),
+    apartmentSide: normalizeSide(opts.apartment_side),
+    roomNumber: normalizeInt(opts.room_number),
+    roomSide: normalizeSide(opts.room_side),
     // Fotos liegen in einem Unterordner des HA-Konfigurationsordners (nicht Teil des
     // Add-ons/Git), damit sie über den vorhandenen "File editor"-Add-on hochgeladen
     // werden können. Lege sie dort unter door.jpg bzw. room.jpg ab.
@@ -88,8 +119,10 @@ if (isAddon) {
     hallwayLightEntityId: process.env.HALLWAY_LIGHT_ENTITY_ID || null,
     guestroomLightEntityId: process.env.GUESTROOM_LIGHT_ENTITY_ID || null,
     bellLabel: process.env.BELL_LABEL || '',
-    apartmentLocation: process.env.APARTMENT_LOCATION || '',
-    roomLocation: process.env.ROOM_LOCATION || '',
+    apartmentFloor: normalizeInt(process.env.APARTMENT_FLOOR),
+    apartmentSide: normalizeSide(process.env.APARTMENT_SIDE),
+    roomNumber: normalizeInt(process.env.ROOM_NUMBER),
+    roomSide: normalizeSide(process.env.ROOM_SIDE),
     // Lokaler Ordner außerhalb von public/ - per .gitignore ausgeschlossen, landet nie im Repo.
     imagesDir: path.join(__dirname, '..', 'images'),
     adminPassword: process.env.ADMIN_PASSWORD || null,
