@@ -1,5 +1,5 @@
 const el = (id) => document.getElementById(id);
-const steps = ['step-pin', 'step-bell', 'step-street-open', 'step-apartment', 'step-done'];
+const steps = ['step-pin', 'step-bell', 'step-street-open', 'step-apartment', 'step-done', 'step-menu', 'step-controls'];
 
 let lang = detectLanguage();
 let guestTexts = JSON.parse(sessionStorage.getItem('guestTexts') || 'null');
@@ -10,6 +10,16 @@ function t() {
 
 function showStep(id) {
   steps.forEach((s) => el(s).classList.toggle('hidden', s !== id));
+}
+
+// Ordnet einen vom Server gelieferten Session-Schritt dem passenden UI-Step zu.
+// "opening" (Klingeln erkannt, Ring-Service wird gerade aufgerufen) zeigt noch den
+// Warte-Screen - der Wechsel zu "street-open" kommt dann über das Polling.
+function showStepForServerStep(step) {
+  if (step === 'menu') return showStep('step-menu');
+  if (step === 'street_door_open') return showStep('step-street-open');
+  if (step === 'done') return showStep('step-done');
+  return showStep('step-bell');
 }
 
 // Rendert alle statischen + gast-individuellen Texte in der aktuell gewählten Sprache neu.
@@ -28,6 +38,19 @@ function render() {
   el('apartment-btn').textContent = T.apartmentBtn;
   el('done-title').textContent = T.doneTitle;
   el('done-footer').textContent = T.doneFooter;
+  el('confirm-ok-btn').textContent = T.confirmOkBtn;
+  el('menu-title').textContent = T.menuTitle;
+  el('menu-intro').textContent = T.menuIntro;
+  el('menu-doors-btn').textContent = T.menuDoorsBtn;
+  el('menu-controls-btn').textContent = T.menuControlsBtn;
+  el('controls-title').textContent = T.controlsTitle;
+  el('controls-climate-label').textContent = T.controlsClimateLabel;
+  el('controls-ceiling-label').textContent = T.controlsCeilingLabel;
+  el('controls-floor-label').textContent = T.controlsFloorLabel;
+  el('controls-back-btn').textContent = T.controlsBackBtn;
+  // Lichtschalter-Beschriftung hängt vom aktuellen An/Aus-Zustand ab (siehe updateLightButton).
+  if (el('ceiling-toggle').dataset.on) updateLightButton('ceiling-toggle', el('ceiling-toggle').dataset.on === '1');
+  if (el('floor-toggle').dataset.on) updateLightButton('floor-toggle', el('floor-toggle').dataset.on === '1');
 
   if (guestTexts) {
     if (guestTexts.guestName) {
@@ -88,8 +111,8 @@ el('pin-form').addEventListener('submit', async (e) => {
     sessionStorage.setItem('guestToken', token);
     sessionStorage.setItem('guestTexts', JSON.stringify(data));
     render();
-    showStep('step-bell');
-    startPolling();
+    showStepForServerStep(data.step);
+    if (data.step !== 'menu') startPolling();
   } catch (err) {
     el('pin-error').textContent = t().errors.network;
   }
@@ -147,6 +170,165 @@ el('apartment-btn').addEventListener('click', async () => {
   }
 });
 
+// "Alles in Ordnung": markiert den Gast serverseitig als eingecheckt (für das
+// Rückkehrgast-Menü beim nächsten Login) und benachrichtigt den Gastgeber.
+el('confirm-ok-btn').addEventListener('click', async () => {
+  el('confirm-ok-btn').disabled = true;
+  try {
+    const res = await fetch('/api/confirm-ok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      el('confirm-ok-btn').disabled = false;
+      return;
+    }
+    el('confirm-ok-btn').classList.add('hidden');
+    el('confirm-ok-done').textContent = t().confirmOkDone;
+    el('confirm-ok-done').classList.remove('hidden');
+  } catch (err) {
+    el('confirm-ok-btn').disabled = false;
+  }
+});
+
+// --- Rückkehrgast-Menü ---
+
+el('menu-doors-btn').addEventListener('click', async () => {
+  el('menu-error').textContent = '';
+  try {
+    const res = await fetch('/api/menu/reopen-doors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      el('menu-error').textContent = translateError(data);
+      return;
+    }
+    showStep('step-bell');
+    startPolling();
+  } catch (err) {
+    el('menu-error').textContent = t().errors.network;
+  }
+});
+
+el('menu-controls-btn').addEventListener('click', () => {
+  showStep('step-controls');
+  loadRoomControls();
+});
+
+el('controls-back-btn').addEventListener('click', () => showStep('step-menu'));
+
+// --- Zimmersteuerung (Heizung + Lichter) ---
+
+let climateState = null; // { target, min, max }
+
+function renderClimateValue() {
+  el('climate-value').textContent = climateState && climateState.target != null ? `${climateState.target}°C` : '–';
+}
+
+function updateLightButton(id, on) {
+  const btn = el(id);
+  btn.textContent = on ? t().lightTurnOffBtn : t().lightTurnOnBtn;
+  btn.dataset.on = on ? '1' : '0';
+}
+
+async function loadRoomControls() {
+  el('controls-error').textContent = '';
+  try {
+    const res = await fetch(`/api/room-controls?token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+    if (!res.ok) {
+      el('controls-error').textContent = translateError(data);
+      return;
+    }
+
+    if (data.climate) {
+      climateState = {
+        target: data.climate.targetTemperature,
+        min: data.climate.minTemp != null ? data.climate.minTemp : 10,
+        max: data.climate.maxTemp != null ? data.climate.maxTemp : 28,
+      };
+      el('controls-climate').classList.remove('hidden');
+      renderClimateValue();
+    } else {
+      climateState = null;
+      el('controls-climate').classList.add('hidden');
+    }
+
+    if (data.ceilingLight) {
+      el('controls-ceiling').classList.remove('hidden');
+      updateLightButton('ceiling-toggle', data.ceilingLight.on);
+    } else {
+      el('controls-ceiling').classList.add('hidden');
+    }
+
+    if (data.floorLight) {
+      el('controls-floor').classList.remove('hidden');
+      updateLightButton('floor-toggle', data.floorLight.on);
+    } else {
+      el('controls-floor').classList.add('hidden');
+    }
+  } catch (err) {
+    el('controls-error').textContent = t().errors.network;
+  }
+}
+
+async function adjustClimate(delta) {
+  if (!climateState || climateState.target == null) return;
+  const next = Math.min(climateState.max, Math.max(climateState.min, Math.round((climateState.target + delta) * 2) / 2));
+  const previous = climateState.target;
+  climateState.target = next;
+  renderClimateValue();
+  try {
+    const res = await fetch('/api/room-controls/climate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, temperature: next }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      el('controls-error').textContent = translateError(data);
+      climateState.target = previous;
+      renderClimateValue();
+    }
+  } catch (err) {
+    el('controls-error').textContent = t().errors.network;
+    climateState.target = previous;
+    renderClimateValue();
+  }
+}
+
+el('climate-plus').addEventListener('click', () => adjustClimate(0.5));
+el('climate-minus').addEventListener('click', () => adjustClimate(-0.5));
+
+async function toggleLight(target, btnId) {
+  const currentlyOn = el(btnId).dataset.on === '1';
+  const nextOn = !currentlyOn;
+  updateLightButton(btnId, nextOn); // optimistisch, wird bei Fehler zurückgesetzt
+  try {
+    const res = await fetch('/api/room-controls/light', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, target, on: nextOn }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      el('controls-error').textContent = translateError(data);
+      updateLightButton(btnId, currentlyOn);
+    }
+  } catch (err) {
+    el('controls-error').textContent = t().errors.network;
+    updateLightButton(btnId, currentlyOn);
+  }
+}
+
+el('ceiling-toggle').addEventListener('click', () => toggleLight('ceiling', 'ceiling-toggle'));
+el('floor-toggle').addEventListener('click', () => toggleLight('floor', 'floor-toggle'));
+
 function resetToPinStep(message) {
   token = null;
   sessionStorage.removeItem('guestToken');
@@ -157,8 +339,19 @@ function resetToPinStep(message) {
 
 render();
 
-// Falls die Seite neu geladen wurde, aber noch ein gültiges Token existiert: Polling fortsetzen.
+// Falls die Seite neu geladen wurde, aber noch ein gültiges Token existiert: aktuellen
+// Schritt vom Server holen (kann jetzt auch "menu", "street_door_open" oder "done" sein,
+// nicht mehr pauschal "wartet auf Klingeln") und ggf. Polling fortsetzen.
 if (token) {
-  showStep('step-bell');
-  startPolling();
+  fetch(`/api/session?token=${encodeURIComponent(token)}`)
+    .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok) {
+        resetToPinStep(translateError(data));
+        return;
+      }
+      showStepForServerStep(data.step);
+      if (data.step === 'await_bell' || data.step === 'opening') startPolling();
+    })
+    .catch(() => resetToPinStep(t().errors.network));
 }

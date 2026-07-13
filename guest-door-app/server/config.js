@@ -98,6 +98,12 @@ if (isAddon) {
     // HA-Automationen (z.B. eine allgemeine Klingel-Benachrichtigung) erkennen, dass die
     // App das Klingeln bereits selbst verarbeitet, und in dem Moment stumm bleiben.
     appActiveEntityId: opts.app_active_entity_id || null,
+    // Zimmersteuerung für Rückkehrgäste (Menü statt erneutem Klingel-Ablauf). Alle drei
+    // optional - ist keine gesetzt, wird die Menü-Option "Zimmer steuern" gar nicht erst
+    // angezeigt und Rückkehrgäste durchlaufen weiterhin normal den Klingel-Ablauf.
+    guestroomClimateEntityId: opts.guestroom_climate_entity_id || null,
+    guestroomCeilingLightEntityId: opts.guestroom_ceiling_light_entity_id || null,
+    guestroomFloorLightEntityId: opts.guestroom_floor_light_entity_id || null,
     // Gäste liegen in einer persistenten JSON-Datei, verwaltet über die /admin-Seite -
     // nicht mehr über die Add-on-Optionen (die bieten keinen Datum/Zeit-Picker).
     guests: null,
@@ -128,11 +134,21 @@ if (isAddon) {
     adminPassword: process.env.ADMIN_PASSWORD || null,
     notifyService: process.env.NOTIFY_SERVICE || '',
     appActiveEntityId: process.env.APP_ACTIVE_ENTITY_ID || null,
+    guestroomClimateEntityId: process.env.GUESTROOM_CLIMATE_ENTITY_ID || null,
+    guestroomCeilingLightEntityId: process.env.GUESTROOM_CEILING_LIGHT_ENTITY_ID || null,
+    guestroomFloorLightEntityId: process.env.GUESTROOM_FLOOR_LIGHT_ENTITY_ID || null,
     guests: null,
     guestsFile: path.join(__dirname, '..', 'guests.json'),
     port: process.env.PORT || 3000,
   };
 }
+
+// Zimmersteuerung nur anbieten, wenn mindestens eine der drei Entities konfiguriert ist.
+config.hasRoomControls = !!(
+  config.guestroomClimateEntityId ||
+  config.guestroomCeilingLightEntityId ||
+  config.guestroomFloorLightEntityId
+);
 
 const REQUIRED = ['haUrl', 'haToken', 'doorbellEntityId', 'ringIntercomEntityId', 'nukiEntityId', 'adminPassword'];
 for (const key of REQUIRED) {

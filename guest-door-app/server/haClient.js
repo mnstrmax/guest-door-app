@@ -100,6 +100,41 @@ class HAClient {
     return this.callService('light', 'turn_on', { entity_id: entityIds });
   }
 
+  /** Schaltet eine einzelne Lampe an/aus (Zimmersteuerung für Rückkehrgäste). */
+  async setLight(entityId, on) {
+    if (!entityId) return;
+    return this.callService('light', on ? 'turn_on' : 'turn_off', { entity_id: entityId });
+  }
+
+  /** Setzt die Zieltemperatur einer climate-Entity (Heizung, Zimmersteuerung). */
+  async setClimateTemperature(entityId, temperature) {
+    if (!entityId) return;
+    return this.callService('climate', 'set_temperature', { entity_id: entityId, temperature });
+  }
+
+  /**
+   * Liest den aktuellen Zustand einer Entity (z.B. um Heizungs-/Lichtzustand in der
+   * Zimmersteuerung anzuzeigen). Gibt bei Fehlern/fehlender Entity null zurück statt
+   * zu werfen - die Zimmersteuerung soll bei einem einzelnen kaputten Entity nicht
+   * komplett ausfallen, sondern den jeweiligen Bereich einfach ausblenden.
+   */
+  async getState(entityId) {
+    if (!entityId) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/api/states/${entityId}`, {
+        headers: { Authorization: `Bearer ${this.token}` },
+      });
+      if (!res.ok) {
+        console.error(`[HA] Zustand von ${entityId} konnte nicht gelesen werden (${res.status})`);
+        return null;
+      }
+      return res.json();
+    } catch (err) {
+      console.error(`[HA] Zustand von ${entityId} konnte nicht gelesen werden:`, err.message);
+      return null;
+    }
+  }
+
   /**
    * Setzt einen input_boolean-Helfer, mit dem eigene HA-Automationen erkennen können,
    * dass die App gerade selbst auf ein Klingeln wartet (z.B. um eine parallele

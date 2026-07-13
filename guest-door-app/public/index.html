@@ -55,6 +55,38 @@
       <p id="done-text"></p>
       <img src="/images/room.jpg" alt="Dein Zimmer" class="guide-photo" onerror="this.style.display='none'">
       <p id="done-footer"></p>
+      <button type="button" id="confirm-ok-btn"></button>
+      <p class="hint hidden" id="confirm-ok-done"></p>
+    </section>
+
+    <section id="step-menu" class="step hidden">
+      <h2 id="menu-title"></h2>
+      <p id="menu-intro"></p>
+      <button type="button" id="menu-doors-btn"></button>
+      <button type="button" id="menu-controls-btn"></button>
+      <p class="error" id="menu-error"></p>
+    </section>
+
+    <section id="step-controls" class="step hidden">
+      <h2 id="controls-title"></h2>
+      <div id="controls-climate" class="control-block hidden">
+        <p id="controls-climate-label"></p>
+        <div class="temp-row">
+          <button type="button" id="climate-minus">−</button>
+          <span id="climate-value">–</span>
+          <button type="button" id="climate-plus">+</button>
+        </div>
+      </div>
+      <div id="controls-ceiling" class="control-block hidden">
+        <p id="controls-ceiling-label"></p>
+        <button type="button" id="ceiling-toggle"></button>
+      </div>
+      <div id="controls-floor" class="control-block hidden">
+        <p id="controls-floor-label"></p>
+        <button type="button" id="floor-toggle"></button>
+      </div>
+      <button type="button" id="controls-back-btn"></button>
+      <p class="error" id="controls-error"></p>
     </section>
   </main>
   <script src="i18n.js"></script>

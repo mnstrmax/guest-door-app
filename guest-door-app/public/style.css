@@ -108,6 +108,62 @@ button:disabled {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
+#confirm-ok-btn {
+  margin-top: 16px;
+}
+
+#menu-doors-btn,
+#menu-controls-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.control-block {
+  margin: 18px 0;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #eee;
+}
+
+.control-block:last-of-type {
+  border-bottom: none;
+}
+
+.control-block p {
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: #333;
+}
+
+.temp-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.temp-row button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 1.4rem;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+#climate-value {
+  font-size: 1.3rem;
+  font-weight: 600;
+  min-width: 64px;
+  display: inline-block;
+}
+
+#controls-back-btn {
+  margin-top: 10px;
+  background: #eee;
+  color: #444;
+}
+
 .spinner {
   margin: 24px auto;
   width: 40px;

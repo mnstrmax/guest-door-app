@@ -4,6 +4,36 @@ Kleine WebApp für Airbnb-Gäste: PIN eingeben → einmal an der Ring-Gegensprec
 klingeln → Haustür öffnet sich automatisch (Ring Intercom) → Button für die
 Wohnungstür (Nuki) drücken. Gastgeber bekommt bei jedem Schritt eine Push-Benachrichtigung.
 
+## Rückkehrgäste: Menü statt erneutem Klingel-Ablauf
+
+Sobald ein Gast den kompletten Ablauf einmal durchlaufen und am Ende auf **"Alles in
+Ordnung"** getippt hat, wird er dafür in der Gästedatei als eingecheckt markiert (nur
+intern, keine Konfiguration nötig). Meldet er sich danach erneut mit seiner PIN an,
+bekommt er - sofern eine Zimmersteuerung konfiguriert ist (siehe unten) - statt des
+Klingel-Ablaufs ein Menü mit zwei Optionen:
+
+- **Türen nochmal öffnen**: startet den normalen Ablauf erneut (Klingeln → Haustür →
+  Wohnungstür), z. B. wenn der Gast nochmal rausgegangen ist.
+- **Zimmer steuern**: öffnet die Zimmersteuerung (Heizung + Lichter, siehe unten).
+
+Ist keine Zimmersteuerung konfiguriert, gibt es kein Menü - Rückkehrgäste durchlaufen
+dann weiterhin einfach den normalen Klingel-Ablauf wie beim ersten Mal.
+
+Der Bestätigungs-Button am Ende schickt außerdem eine Push-Benachrichtigung an dich.
+
+## Zimmersteuerung (Heizung + Lichter) für Rückkehrgäste
+
+Optional können Gäste im Rückkehrgast-Menü die Heizung sowie zwei Lichter im Zimmer
+selbst steuern. Dazu im Konfigurations-Tab eintragen (alle drei optional - nur
+konfigurierte Geräte erscheinen, ist keins gesetzt, entfällt das Menü komplett):
+
+- `guestroom_climate_entity_id`: die `climate.*`-Entity der Heizung. Gast kann die
+  Zieltemperatur in 0,5°C-Schritten anpassen.
+- `guestroom_ceiling_light_entity_id`: `light.*`-Entity des Deckenlichts.
+- `guestroom_floor_light_entity_id`: `light.*`-Entity des Bodenlichts/der Stehlampe.
+
+Beide Lichter lassen sich unabhängig voneinander an-/ausschalten.
+
 ## Sprachen
 
 Das Gäste-Frontend ist mehrsprachig: **Deutsch, Englisch, Französisch, Spanisch**.
@@ -86,7 +116,12 @@ vermeiden:
 4. Sobald die Haustür offen ist, sieht der Gast ein Foto der Wohnungstür + Wegbeschreibung,
    dann den Button "Wohnungstür öffnen" (Nuki). Optional gehen dabei konfigurierte
    Lichter automatisch an. Gastgeber wird benachrichtigt.
-5. Gast sieht ein Foto seines Zimmers zur Orientierung.
+5. Gast sieht ein Foto seines Zimmers zur Orientierung und bestätigt am Ende mit
+   **"Alles in Ordnung"** - Gastgeber wird benachrichtigt, Gast gilt ab jetzt als
+   eingecheckt.
+6. Meldet sich derselbe Gast später erneut mit seiner PIN an, bekommt er (falls
+   Zimmersteuerung konfiguriert ist) ein Menü: Türen nochmal öffnen oder Zimmer
+   steuern (Heizung, Lichter) - siehe "Rückkehrgäste" oben.
 
 ## Voraussetzungen in Home Assistant
 
@@ -156,10 +191,12 @@ Add-on Store → ⋮ → Repositories**. Danach direkt mit Schritt 3 unten weite
    `apartment_floor` (Zahl, 0 = Erdgeschoss), `apartment_side`
    (`links`/`rechts`/`mitte`, auch `left`/`right`/`middle`), `room_number` (Zahl) und
    `room_side` (wie `apartment_side`), `notify_service` (z. B.
-   `mobile_app_iphone17_von_max` für Push-Benachrichtigungen) sowie
+   `mobile_app_iphone17_von_max` für Push-Benachrichtigungen),
    `app_active_entity_id` (siehe Abschnitt "Eigene Klingel-Automation nicht doppelt
-   benachrichtigen lassen") – alles direkt über die HA-Oberfläche, kein manuelles Token
-   nötig (der Supervisor stellt automatisch Zugriff auf die Core-API bereit).
+   benachrichtigen lassen") sowie `guestroom_climate_entity_id`/
+   `guestroom_ceiling_light_entity_id`/`guestroom_floor_light_entity_id` (siehe
+   Abschnitt "Zimmersteuerung") – alles direkt über die HA-Oberfläche, kein manuelles
+   Token nötig (der Supervisor stellt automatisch Zugriff auf die Core-API bereit).
 5. Add-on **starten**. Web-UI unter `http://<home-assistant-ip>:3000`, Gäste-Verwaltung
    unter `http://<home-assistant-ip>:3000/admin` (Login mit beliebigem Benutzernamen,
    Passwort = `admin_password`).
@@ -175,7 +212,12 @@ davorschalten – siehe Sicherheitshinweise.
   (z. B. für anreisende Gäste), unbedingt einen Reverse Proxy mit HTTPS davorschalten
   (z. B. Caddy, Traefik, nginx + Let's Encrypt), da sonst PIN und Admin-Passwort im
   Klartext übertragen werden.
-- PIN-Eingaben werden pro IP-Adresse begrenzt (max. 8 Versuche / 15 Minuten).
+- PIN-Eingaben sind doppelt begrenzt: max. 8 Versuche / 15 Minuten pro IP-Adresse
+  **und zusätzlich** max. 8 Fehlversuche / 15 Minuten insgesamt, egal von welcher IP.
+  Das zweite Limit verhindert, dass jemand das IP-Limit einfach durch viele
+  verschiedene Absender-IPs umgeht (bei nur 4-stelligen PINs die eigentlich wirksame
+  Bremse gegen verteiltes Brute-Forcing). Löst das globale Limit aus, wirst du einmalig
+  per Push benachrichtigt.
 - Sessions laufen nach 2 Stunden automatisch ab.
 - Der HA-Token liegt nur serverseitig (`.env` bzw. vom Supervisor injiziert) und wird
   nie an den Browser gesendet.

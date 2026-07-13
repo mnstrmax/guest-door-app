@@ -5,17 +5,19 @@ const sessions = new Map();
 
 /**
  * Ablauf einer Session (Feld "step"):
+ *   menu               -> Rückkehrgast: Auswahl zwischen "Türen öffnen" und "Zimmer steuern"
  *   await_bell        -> wartet darauf, dass der Gast klingelt
  *   opening            -> Klingeln erkannt, Ring-Intercom-Service wird gerade aufgerufen
  *   street_door_open   -> Haustür wurde geöffnet, Gast darf zur Wohnungstür weitergehen
  *   done               -> Wohnungstür wurde geöffnet
  */
-function createSession(guest) {
+function createSession(guest, initialStep = 'await_bell') {
   const token = crypto.randomBytes(24).toString('hex');
   sessions.set(token, {
     token,
+    guestId: guest.id,
     guestName: guest.name || 'Gast',
-    step: 'await_bell',
+    step: initialStep,
     error: null,
     errorCode: null,
     createdAt: Date.now(),

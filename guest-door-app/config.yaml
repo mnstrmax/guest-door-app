@@ -1,5 +1,5 @@
 name: "Guest Door App"
-version: "1.4.0"
+version: "1.5.1"
 slug: "guest_door_app"
 description: "PIN-geschützte WebApp für Airbnb-Gäste: öffnet Haustür (Ring Intercom) und Wohnungstür (Nuki) über Home Assistant."
 url: "https://github.com/mnstrmax/guest-door-app"
@@ -32,6 +32,9 @@ options:
   admin_password: ""
   notify_service: ""
   app_active_entity_id: ""
+  guestroom_climate_entity_id: ""
+  guestroom_ceiling_light_entity_id: ""
+  guestroom_floor_light_entity_id: ""
 schema:
   doorbell_entity_id: "str"
   ring_intercom_entity_id: "str"
@@ -48,3 +51,6 @@ schema:
   admin_password: "password"
   notify_service: "str?"
   app_active_entity_id: "str?"
+  guestroom_climate_entity_id: "str?"
+  guestroom_ceiling_light_entity_id: "str?"
+  guestroom_floor_light_entity_id: "str?"
