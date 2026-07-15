@@ -61,6 +61,46 @@ function resetGlobalAttempts() {
   globalState = null;
 }
 
+// Eigener, strengerer Bucket für /admin/login-Versuche (Benutzername+Passwort+TOTP) -
+// getrennt vom Gäste-PIN-Limit, da ein erfolgreicher Admin-Login deutlich weitreichender
+// ist als eine einzelne Gäste-PIN. Ebenfalls pro IP UND global, aus demselben Grund wie
+// beim PIN-Limit (verteiltes Brute-Forcing über viele IPs).
+const ADMIN_WINDOW_MS = 15 * 60 * 1000;
+const ADMIN_MAX_ATTEMPTS = 5;
+const adminAttempts = new Map();
+let adminGlobalState = null;
+
+function isAdminLoginRateLimited(ip) {
+  const entry = adminAttempts.get(ip);
+  const ipLimited = entry && Date.now() - entry.firstAttempt <= ADMIN_WINDOW_MS && entry.count >= ADMIN_MAX_ATTEMPTS;
+  if (entry && Date.now() - entry.firstAttempt > ADMIN_WINDOW_MS) adminAttempts.delete(ip);
+
+  if (adminGlobalState && Date.now() - adminGlobalState.firstAttempt > ADMIN_WINDOW_MS) adminGlobalState = null;
+  const globalLimited = adminGlobalState && adminGlobalState.count >= ADMIN_MAX_ATTEMPTS;
+
+  return !!ipLimited || !!globalLimited;
+}
+
+function recordAdminLoginAttempt(ip) {
+  const entry = adminAttempts.get(ip);
+  if (!entry || Date.now() - entry.firstAttempt > ADMIN_WINDOW_MS) {
+    adminAttempts.set(ip, { count: 1, firstAttempt: Date.now() });
+  } else {
+    entry.count += 1;
+  }
+
+  if (!adminGlobalState || Date.now() - adminGlobalState.firstAttempt > ADMIN_WINDOW_MS) {
+    adminGlobalState = { count: 1, firstAttempt: Date.now() };
+  } else {
+    adminGlobalState.count += 1;
+  }
+}
+
+function resetAdminLoginAttempts(ip) {
+  adminAttempts.delete(ip);
+  adminGlobalState = null;
+}
+
 module.exports = {
   isRateLimited,
   recordAttempt,
@@ -68,4 +108,7 @@ module.exports = {
   isGloballyRateLimited,
   recordGlobalAttempt,
   resetGlobalAttempts,
+  isAdminLoginRateLimited,
+  recordAdminLoginAttempt,
+  resetAdminLoginAttempts,
 };

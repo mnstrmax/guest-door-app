@@ -87,12 +87,35 @@
     border-bottom: 1px dotted #999;
   }
   .pin-mask:hover { border-bottom-color: #000dff; }
+  .topbar { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .security-box {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 24px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  }
+  .security-box h2 { margin-top: 0; font-size: 1.05rem; }
+  .secret-box {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: #f4f5f7;
+    border-radius: 6px;
+    padding: 10px 12px;
+    word-break: break-all;
+    margin: 10px 0;
+    font-size: 0.95rem;
+  }
 </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Gäste-Verwaltung</h1>
-    <p class="hint">PIN, Name und Zeitraum pro Gast. Läuft der Zeitraum ab, wird die PIN automatisch ungültig.</p>
+    <div class="topbar">
+      <div>
+        <h1>Gäste-Verwaltung</h1>
+        <p class="hint">PIN, Name und Zeitraum pro Gast. Läuft der Zeitraum ab, wird die PIN automatisch ungültig.</p>
+      </div>
+      <button class="secondary" id="logout-btn">Abmelden</button>
+    </div>
 
     <table>
       <thead>
@@ -131,6 +154,25 @@
       <button type="submit" id="save-btn">Speichern</button>
       <button type="button" class="secondary" id="cancel-btn">Abbrechen</button>
     </form>
+
+    <div class="security-box">
+      <h2>Zwei-Faktor-Authentifizierung (2FA)</h2>
+      <p class="hint">
+        Erzeugt einen neuen geheimen Schlüssel für deine Authenticator-App (Google
+        Authenticator, Authy, 1Password, …). Trage ihn dort manuell ein ("Setup-Schlüssel
+        eingeben", kein QR-Code nötig), kopiere ihn danach in die Add-on-Konfiguration bei
+        <code>admin_totp_secret</code> und starte das Add-on neu. Ab dann verlangt der
+        Login zusätzlich zu Benutzername/Passwort den 6-stelligen Code aus der App.
+      </p>
+      <button type="button" class="secondary" id="totp-btn">Neuen Code generieren</button>
+      <div id="totp-result" class="hidden">
+        <p class="hint" style="margin-bottom: 4px;">Geheimer Schlüssel (in die Authenticator-App eingeben):</p>
+        <div class="secret-box" id="totp-secret"></div>
+        <p class="hint" style="margin-bottom: 4px;">Alternativ als otpauth-URI (falls deine App das Einfügen einer URI unterstützt):</p>
+        <div class="secret-box" id="totp-uri"></div>
+      </div>
+      <p class="error" id="totp-error"></p>
+    </div>
   </div>
 
   <script>
@@ -142,6 +184,12 @@
 
     async function api(url, options) {
       const res = await fetch(url, options);
+      if (res.status === 401) {
+        // Session abgelaufen oder ungültig -> zurück zum Login, statt eine verwirrende
+        // Fehlermeldung in der Tabelle anzuzeigen.
+        window.location.href = '/admin/login';
+        throw new Error('Anmeldung erforderlich.');
+      }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Fehler (${res.status})`);
@@ -252,6 +300,32 @@
 
     document.getElementById('add-btn').addEventListener('click', () => openEditor(null));
     document.getElementById('cancel-btn').addEventListener('click', closeEditor);
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      try {
+        await fetch('/admin/logout', { method: 'POST' });
+      } finally {
+        window.location.href = '/admin/login';
+      }
+    });
+
+    const totpBtn = document.getElementById('totp-btn');
+    const totpResult = document.getElementById('totp-result');
+    const totpError = document.getElementById('totp-error');
+    totpBtn.addEventListener('click', async () => {
+      totpError.textContent = '';
+      totpBtn.disabled = true;
+      try {
+        const data = await api('/api/admin/generate-totp-secret', { method: 'POST' });
+        document.getElementById('totp-secret').textContent = data.secret;
+        document.getElementById('totp-uri').textContent = data.otpauthUri;
+        totpResult.classList.remove('hidden');
+      } catch (err) {
+        totpError.textContent = err.message;
+      } finally {
+        totpBtn.disabled = false;
+      }
+    });
 
     const syncBtn = document.getElementById('sync-btn');
     const syncStatus = document.getElementById('sync-status');

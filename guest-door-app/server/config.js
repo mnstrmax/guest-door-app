@@ -88,8 +88,15 @@ if (isAddon) {
     // Add-ons/Git), damit sie über den vorhandenen "File editor"-Add-on hochgeladen
     // werden können. Lege sie dort unter door.jpg bzw. room.jpg ab.
     imagesDir: resolveImagesDir(),
-    // Passwort für die /admin-Seite (Gäste-Verwaltung mit Datum/Zeit-Picker).
+    // Login für die /admin-Seite (Gäste-Verwaltung mit Datum/Zeit-Picker). Benutzername
+    // frei wählbar (Default "admin"), Passwort Pflicht. adminTotpSecret ist optional: ist
+    // er gesetzt, verlangt der Login zusätzlich einen 6-stelligen Code aus einer
+    // Authenticator-App (2FA). Wird im Admin-Bereich per Klick auf "Neuen Code generieren"
+    // erzeugt und muss danach manuell hier eingetragen werden - landet wie jedes andere
+    // Geheimnis nie im Quellcode/Git.
+    adminUsername: opts.admin_username || 'admin',
     adminPassword: opts.admin_password || null,
+    adminTotpSecret: opts.admin_totp_secret || null,
     // Voller Name des notify-Service für Push-Benachrichtigungen an den Gastgeber,
     // z.B. "mobile_app_iphone17_von_max" (Teil nach "notify."). Leer = keine Benachrichtigungen.
     notifyService: opts.notify_service || '',
@@ -139,7 +146,9 @@ if (isAddon) {
     roomSide: normalizeSide(process.env.ROOM_SIDE),
     // Lokaler Ordner außerhalb von public/ - per .gitignore ausgeschlossen, landet nie im Repo.
     imagesDir: path.join(__dirname, '..', 'images'),
+    adminUsername: process.env.ADMIN_USERNAME || 'admin',
     adminPassword: process.env.ADMIN_PASSWORD || null,
+    adminTotpSecret: process.env.ADMIN_TOTP_SECRET || null,
     notifyService: process.env.NOTIFY_SERVICE || '',
     appActiveEntityId: process.env.APP_ACTIVE_ENTITY_ID || null,
     guestroomClimateEntityId: process.env.GUESTROOM_CLIMATE_ENTITY_ID || null,

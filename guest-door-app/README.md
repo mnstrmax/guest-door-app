@@ -86,6 +86,26 @@ z. B. "3. Obergeschoss rechts" / "3rd floor, on the right" / "3e étage, à droi
 "3ª planta, a la derecha". Lässt du sie leer, fällt die App auf generische Sätze ohne
 diese Details zurück.
 
+## ⚠️ Update auf 1.7.0: Admin-Login jetzt mit Session + optionaler 2FA
+
+Die `/admin`-Seite verwendet nicht mehr HTTP Basic Auth, sondern eine echte
+Login-Seite (`/admin/login`) mit Session-Cookie (läuft nach 12 Stunden automatisch ab).
+**Im Browser gespeicherte Basic-Auth-Zugangsdaten funktionieren nach dem Update nicht
+mehr** – einmalig neu über `/admin/login` einloggen.
+
+- Der Benutzername ist jetzt frei wählbar über die neue Option `admin_username`
+  (Standalone: `ADMIN_USERNAME`). Ist sie leer, gilt weiterhin `admin` als Benutzername,
+  genau wie bisher jeder beliebige Benutzername akzeptiert wurde.
+- Optional lässt sich Zwei-Faktor-Authentifizierung (2FA) aktivieren: einmal ohne 2FA
+  einloggen, in `/admin` unter "Zwei-Faktor-Authentifizierung" auf "Neuen Code
+  generieren" klicken, den Secret-Key in eine Authenticator-App scannen/eintragen
+  **und** in die Option `admin_totp_secret` (Standalone: `ADMIN_TOTP_SECRET`)
+  eintragen, danach Add-on/Server neu starten. Ab dann verlangt der Login zusätzlich
+  den 6-stelligen Code aus der App. Leer lassen = 2FA bleibt deaktiviert.
+- Login-Versuche auf `/admin/login` sind eigens begrenzt (5 Fehlversuche / 15 Minuten,
+  pro IP und global), unabhängig vom PIN-Rate-Limit für Gäste. Ein fehlgeschlagener
+  Admin-Login löst wie ein fehlgeschlagener PIN-Versuch eine Push-Benachrichtigung aus.
+
 ## ⚠️ Update auf 1.4.0: Stockwerk/Zimmer jetzt strukturiert statt Freitext
 
 Die Optionen `apartment_location` und `room_location` gibt es nicht mehr. Stattdessen:
@@ -199,8 +219,9 @@ HA-Oberfläche, kein Token nötig) läuft. Beide Wege sind unten beschrieben.
    Ohne Docker: `npm install && npm start`.
 
 3. App unter `http://<server-ip>:3000` aufrufen, Gäste unter
-   `http://<server-ip>:3000/admin` anlegen (Login: beliebiger Benutzername,
-   Passwort = `ADMIN_PASSWORD`).
+   `http://<server-ip>:3000/admin` anlegen (Login über `/admin/login`: Benutzername =
+   `ADMIN_USERNAME` bzw. `admin`, Passwort = `ADMIN_PASSWORD`, optional 2FA-Code – siehe
+   Abschnitt "Update auf 1.7.0").
 
 ## Option B: Als Home Assistant Add-on (Supervised / HA OS)
 
@@ -231,12 +252,13 @@ Add-on Store → ⋮ → Repositories**. Danach direkt mit Schritt 3 unten weite
    benachrichtigen lassen"), `guestroom_climate_entity_id`/
    `guestroom_ceiling_light_entity_id`/`guestroom_floor_light_entity_id` (siehe
    Abschnitt "Zimmersteuerung") sowie `airbnb_ical_url`/`default_checkin_time`/
-   `default_checkout_time` (siehe Abschnitt "Automatischer Gäste-Import") – alles direkt
-   über die HA-Oberfläche, kein manuelles Token nötig (der Supervisor stellt automatisch
-   Zugriff auf die Core-API bereit).
+   `default_checkout_time` (siehe Abschnitt "Automatischer Gäste-Import") sowie optional
+   `admin_username` (Standard `admin`) und `admin_totp_secret` für 2FA (siehe Abschnitt
+   "Update auf 1.7.0") – alles direkt über die HA-Oberfläche, kein manuelles Token nötig
+   (der Supervisor stellt automatisch Zugriff auf die Core-API bereit).
 5. Add-on **starten**. Web-UI unter `http://<home-assistant-ip>:3000`, Gäste-Verwaltung
-   unter `http://<home-assistant-ip>:3000/admin` (Login mit beliebigem Benutzernamen,
-   Passwort = `admin_password`).
+   unter `http://<home-assistant-ip>:3000/admin` (Login über `/admin/login`: Benutzername
+   = `admin_username` bzw. `admin`, Passwort = `admin_password`, optional 2FA-Code).
 6. Nach Änderungen an Entity-IDs/Texten im Konfigurations-Tab muss das Add-on
    **neu gestartet** werden. Gäste über `/admin` wirken sofort, ohne Neustart.
 
@@ -255,10 +277,15 @@ davorschalten – siehe Sicherheitshinweise.
   verschiedene Absender-IPs umgeht (bei nur 4-stelligen PINs die eigentlich wirksame
   Bremse gegen verteiltes Brute-Forcing). Löst das globale Limit aus, wirst du einmalig
   per Push benachrichtigt.
-- Sessions laufen nach 2 Stunden automatisch ab.
+- Gäste-Sessions laufen nach 2 Stunden automatisch ab.
 - Der HA-Token liegt nur serverseitig (`.env` bzw. vom Supervisor injiziert) und wird
   nie an den Browser gesendet.
-- Die `/admin`-Seite ist per HTTP Basic Auth geschützt (`admin_password`). Ohne HTTPS
+- Die `/admin`-Seite ist über eine eigene Login-Seite (`/admin/login`) mit
+  Session-Cookie geschützt (`admin_username`/`admin_password`, Session läuft nach
+  12 Stunden automatisch ab). Optional lässt sich zusätzlich Zwei-Faktor-Authentifizierung
+  (TOTP, `admin_totp_secret`) aktivieren – siehe Abschnitt "Update auf 1.7.0". Admin-Logins
+  sind eigens auf 5 Fehlversuche / 15 Minuten begrenzt (pro IP und global), unabhängig vom
+  PIN-Rate-Limit; ein Fehlversuch löst eine Push-Benachrichtigung aus. Ohne HTTPS
   davorgeschaltet ist das nur für den Einsatz im vertrauenswürdigen lokalen Netz gedacht.
 - Die Haustür öffnet sich ausschließlich, wenn zuvor eine gültige PIN eingegeben wurde
   **und** danach geklingelt wird – ein Klingeln allein öffnet nichts.

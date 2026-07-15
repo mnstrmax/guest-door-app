@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const config = require('./config');
 const HAClient = require('./haClient');
@@ -12,7 +13,12 @@ const {
   isGloballyRateLimited,
   recordGlobalAttempt,
   resetGlobalAttempts,
+  isAdminLoginRateLimited,
+  recordAdminLoginAttempt,
+  resetAdminLoginAttempts,
 } = require('./rateLimiter');
+const { createAdminSession, isValidAdminSession, destroyAdminSession } = require('./adminSessions');
+const { verifyTotp, generateBase32Secret, buildOtpauthUri } = require('./totp');
 const airbnbSync = require('./airbnbSync');
 
 console.log(`[app] Starte im Modus: ${config.mode}`);
@@ -355,33 +361,107 @@ app.post('/api/room-controls/climate', async (req, res) => {
 });
 
 // --- Admin-Bereich: Gäste-Verwaltung mit Datum/Zeit-Picker (nicht über HA-Add-on-Optionen
-// möglich, daher eine eigene, passwortgeschützte Seite). ---
+// möglich, daher eine eigene, session-geschützte Seite mit Login + optionaler 2FA). ---
 
-function requireAdmin(req, res, next) {
-  const header = req.headers.authorization || '';
-  const [scheme, encoded] = header.split(' ');
-  if (scheme === 'Basic' && encoded) {
-    const decoded = Buffer.from(encoded, 'base64').toString('utf-8');
-    const sepIdx = decoded.indexOf(':');
-    const password = sepIdx >= 0 ? decoded.slice(sepIdx + 1) : decoded;
-    if (password === config.adminPassword) return next();
+// Kleine Cookie-Helfer ohne zusätzliche Dependency (cookie-parser o.ä.) - das Format ist
+// simpel genug ("key=value; key2=value2"), ein eigener Parser hält das Projekt weiterhin
+// dependency-arm.
+function parseCookies(req) {
+  const header = req.headers.cookie;
+  const out = {};
+  if (!header) return out;
+  for (const part of header.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    const val = part.slice(idx + 1).trim();
+    if (key) out[key] = decodeURIComponent(val);
   }
-  res.set('WWW-Authenticate', 'Basic realm="Guest Door App Admin"');
-  return res.status(401).send('Authentifizierung erforderlich.');
+  return out;
 }
 
-app.get('/admin', requireAdmin, (req, res) => {
+const ADMIN_SESSION_COOKIE = 'admin_session';
+const ADMIN_SESSION_MAX_AGE_S = 12 * 60 * 60; // muss zu SESSION_TTL_MS in adminSessions.js passen
+
+function setAdminSessionCookie(res, token) {
+  res.setHeader(
+    'Set-Cookie',
+    `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=${ADMIN_SESSION_MAX_AGE_S}; SameSite=Lax`
+  );
+}
+
+function clearAdminSessionCookie(res) {
+  res.setHeader('Set-Cookie', `${ADMIN_SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
+}
+
+// Zeitkonstanter String-Vergleich (über Hashes, damit unterschiedlich lange Eingaben
+// nicht schon an der Länge scheitern - crypto.timingSafeEqual verlangt gleich lange
+// Buffer). Verhindert Timing-Seitenkanäle beim Passwortvergleich.
+function timingSafeEqualStr(a, b) {
+  const ha = crypto.createHash('sha256').update(String(a ?? '')).digest();
+  const hb = crypto.createHash('sha256').update(String(b ?? '')).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
+function requireAdminSession(req, res, next) {
+  const cookies = parseCookies(req);
+  if (isValidAdminSession(cookies[ADMIN_SESSION_COOKIE])) return next();
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Anmeldung erforderlich.', code: 'admin_auth_required' });
+  }
+  return res.redirect('/admin/login');
+}
+
+app.get('/admin/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'admin', 'login.html'));
+});
+
+app.post('/admin/login', async (req, res) => {
+  const ip = getClientIp(req);
+  if (isAdminLoginRateLimited(ip)) {
+    return res.status(429).json({ error: 'Zu viele Versuche. Bitte später erneut versuchen.' });
+  }
+
+  const { username, password, totp } = req.body || {};
+  const usernameOk = timingSafeEqualStr(username, config.adminUsername);
+  const passwordOk = typeof password === 'string' && timingSafeEqualStr(password, config.adminPassword);
+  const totpOk = config.adminTotpSecret ? verifyTotp(config.adminTotpSecret, totp) : true;
+
+  if (!usernameOk || !passwordOk || !totpOk) {
+    recordAdminLoginAttempt(ip);
+    await ha.notify(
+      config.notifyService,
+      'Fehlgeschlagener Login-Versuch im Admin-Bereich der Guest Door App.',
+      'Guest Door App ⚠️'
+    );
+    return res.status(401).json({ error: 'Benutzername, Passwort oder Code falsch.' });
+  }
+
+  resetAdminLoginAttempts(ip);
+  const token = createAdminSession();
+  setAdminSessionCookie(res, token);
+  res.json({ ok: true });
+});
+
+app.post('/admin/logout', (req, res) => {
+  const cookies = parseCookies(req);
+  destroyAdminSession(cookies[ADMIN_SESSION_COOKIE]);
+  clearAdminSessionCookie(res);
+  res.json({ ok: true });
+});
+
+app.get('/admin', requireAdminSession, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
 });
 
-app.get('/api/admin/guests', requireAdmin, (req, res) => {
+app.get('/api/admin/guests', requireAdminSession, (req, res) => {
   res.json(loadGuests());
 });
 
 // Manueller Anstoß des Airbnb-Kalender-Syncs (normalerweise läuft er automatisch
 // stündlich im Hintergrund) - praktisch, um nach einer frischen Buchung nicht bis zu
 // einer Stunde warten zu müssen, bis der neue Gast in der Liste auftaucht.
-app.post('/api/admin/sync-airbnb', requireAdmin, async (req, res) => {
+app.post('/api/admin/sync-airbnb', requireAdminSession, async (req, res) => {
   if (!config.airbnbIcalUrl) {
     return res.status(400).json({ error: 'Kein Airbnb-Kalender-Link konfiguriert (airbnb_ical_url).' });
   }
@@ -392,7 +472,18 @@ app.post('/api/admin/sync-airbnb', requireAdmin, async (req, res) => {
   res.json(result);
 });
 
-app.post('/api/admin/guests', requireAdmin, (req, res) => {
+// Generiert ein neues TOTP-Secret zum Einrichten der 2FA. Erfordert bereits eine gültige
+// Admin-Session (Henne-Ei-Problem gelöst: die allererste Einrichtung passiert, solange
+// admin_totp_secret noch leer ist und der Login daher nur Benutzername+Passwort verlangt).
+// Schreibt NICHTS automatisch in die Add-on-Konfiguration - der Host trägt das Secret
+// selbst in admin_totp_secret ein und startet das Add-on neu, genau wie bei allen anderen
+// Konfigurationswerten dieser App.
+app.post('/api/admin/generate-totp-secret', requireAdminSession, (req, res) => {
+  const secret = generateBase32Secret();
+  res.json({ secret, otpauthUri: buildOtpauthUri(secret, { label: `Guest Door App:${config.adminUsername}` }) });
+});
+
+app.post('/api/admin/guests', requireAdminSession, (req, res) => {
   const { name, pin, checkIn, checkOut } = req.body || {};
   if (!name || !pin || !checkIn || !checkOut) {
     return res.status(400).json({ error: 'name, pin, checkIn und checkOut sind erforderlich.' });
@@ -400,7 +491,7 @@ app.post('/api/admin/guests', requireAdmin, (req, res) => {
   res.status(201).json(addGuest({ name, pin, checkIn, checkOut }));
 });
 
-app.put('/api/admin/guests/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/guests/:id', requireAdminSession, (req, res) => {
   const { name, pin, checkIn, checkOut } = req.body || {};
   if (!name || !pin || !checkIn || !checkOut) {
     return res.status(400).json({ error: 'name, pin, checkIn und checkOut sind erforderlich.' });
@@ -410,7 +501,7 @@ app.put('/api/admin/guests/:id', requireAdmin, (req, res) => {
   res.json(guest);
 });
 
-app.delete('/api/admin/guests/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/guests/:id', requireAdminSession, (req, res) => {
   const ok = deleteGuest(req.params.id);
   if (!ok) return res.status(404).json({ error: 'Gast nicht gefunden.' });
   res.status(204).end();
