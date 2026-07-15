@@ -30,16 +30,31 @@ function extractConfirmationCode(text) {
 // Der volle Gastname steht im Mailtext als eigene Zeile direkt vor "Identität verifiziert".
 // Fallback: aus dem Betreff ("Buchung bestätigt – NAME kommt am ...") oder der Überschrift
 // ("Neue Buchung bestätigt: NAME kommt am ...").
+// Verwendet wird nur der Vorname (erstes Wort) - persönlicher und kürzer für die
+// Begrüßung in der App, genau wie Airbnb selbst in der Mail-Überschrift nur den Vornamen
+// zeigt (z.B. "Selina kommt am 17. Juli an").
 function extractGuestName(text, subject) {
-  const bodyMatch = /\n([A-ZÄÖÜ][^\n]{1,60}?)\n[\s\S]{0,20}?Identit[aä]t verifiziert/.exec(text || '');
-  if (bodyMatch) return bodyMatch[1].trim();
-
-  const subjMatch = /Buchung best[aä]tigt[\s\S]{0,5}?[:–-][\s\S]{0,3}?([A-ZÄÖÜ][^\n]{1,60}?)\s+kommt am/i.exec(
-    subject || ''
-  );
-  if (subjMatch) return subjMatch[1].trim();
-
-  return null;
+  // Bewusst nur horizontaler Whitespace ([ \t]*, keine Newlines) zwischen Namenszeile und
+  // "Identität verifiziert" - die beiden stehen im echten Mailtext direkt untereinander,
+  // ohne Leerzeile dazwischen. Ein größeres Toleranzfenster hier würde sonst versehentlich
+  // die Überschrift ("Neue Buchung bestätigt: NAME kommt am ...", die weiter oben in der
+  // Mail steht) als Namenszeile erwischen, wenn dazwischen wenig Text steht.
+  const bodyMatch = /\n([A-ZÄÖÜ][^\n]{1,60}?)\n[ \t]*Identit[aä]t verifiziert/.exec(text || '');
+  let fullName = null;
+  // Zusätzliche Absicherung: eine echte Namenszeile enthält nie "kommt am" oder
+  // "Buchung bestätigt" - falls die Regex doch mal die Überschrift erwischt, wird das
+  // hier verworfen und stattdessen der Betreffs-Fallback verwendet.
+  if (bodyMatch && !/kommt am|Buchung best[aä]tigt/i.test(bodyMatch[1])) {
+    fullName = bodyMatch[1].trim();
+  }
+  if (!fullName) {
+    const subjMatch = /Buchung best[aä]tigt[\s\S]{0,5}?[:–-][\s\S]{0,3}?([A-ZÄÖÜ][^\n]{1,60}?)\s+kommt am/i.exec(
+      subject || ''
+    );
+    if (subjMatch) fullName = subjMatch[1].trim();
+  }
+  if (!fullName) return null;
+  return fullName.split(/\s+/)[0];
 }
 
 const DE_MONTHS = {
