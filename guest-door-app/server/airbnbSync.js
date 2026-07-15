@@ -104,6 +104,12 @@ function extractPhoneLast4(description) {
   return match ? match[1] : null;
 }
 
+// Für die Push-Benachrichtigung bei neu importierten Gästen: kurzes, gut lesbares
+// deutsches Datum statt ISO-String.
+function formatDateDe(date) {
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 async function fetchIcsText(url) {
   const res = await fetch(url);
   if (!res.ok) {
@@ -116,10 +122,13 @@ async function fetchIcsText(url) {
  * Holt den Airbnb-Kalender, erkennt Reservierungen (Termine mit erkennbarer
  * Telefonnummer in der Beschreibung - reine manuelle Blockierungen ohne Buchung haben
  * keine und werden übersprungen) und legt dafür Gäste an/aktualisiert sie. Reservierungen,
- * die aus dem Feed verschwunden sind (z.B. storniert), werden sofort invalidiert.
+ * die aus dem Feed verschwunden sind (z.B. storniert), werden sofort invalidiert. Für neu
+ * angelegte Gäste (Airbnb liefert keinen Namen, nur "Airbnb-Gast" als Platzhalter) geht
+ * eine Push-Benachrichtigung raus, damit der Name zeitnah in /admin ergänzt wird.
  * Best-effort: Netzwerk-/Parse-Fehler landen nur im Log, blockieren nie den Rest der App.
+ * @param {object} [ha] - HAClient-Instanz für Push-Benachrichtigungen (optional).
  */
-async function runSync() {
+async function runSync(ha) {
   if (!config.airbnbIcalUrl) return { skipped: true };
 
   let text;
@@ -142,6 +151,7 @@ async function runSync() {
   let updated = 0;
   let skippedNoPhone = 0;
   const currentUids = [];
+  const newGuests = []; // für die Push-Benachrichtigung am Ende: { checkIn, pin }
 
   for (const ev of events) {
     if (!ev.uid || !ev.dtstartRaw || !ev.dtendRaw) continue;
@@ -167,8 +177,12 @@ async function runSync() {
       checkIn: checkInDate.toISOString(),
       checkOut: checkOutDate.toISOString(),
     });
-    if (wasCreated) created += 1;
-    else updated += 1;
+    if (wasCreated) {
+      created += 1;
+      newGuests.push({ checkIn: checkInDate, pin });
+    } else {
+      updated += 1;
+    }
   }
 
   const invalidated = invalidateMissingSyncedGuests(currentUids);
@@ -178,14 +192,32 @@ async function runSync() {
     `[airbnb-sync] ${events.length} Termine im Feed, ${created} neu, ${updated} aktualisiert, ` +
       `${skippedNoPhone} ohne Telefonnummer übersprungen${invalidated ? ', fehlende Reservierungen invalidiert' : ''}.`
   );
+
+  // Airbnb liefert keinen Gastnamen mit (siehe extractPhoneLast4) - neu angelegte Gäste
+  // tragen bis zur manuellen Korrektur nur den Platzhalter "Airbnb-Gast". Push-Hinweis,
+  // damit der Name zeitnah in /admin ergänzt wird (u.a. für die persönliche Begrüßung).
+  if (ha && newGuests.length > 0) {
+    const lines = newGuests.map((g) => `- Check-in ${formatDateDe(g.checkIn)}, PIN ${g.pin}`);
+    const title =
+      newGuests.length === 1
+        ? 'Neuer Gast aus Airbnb-Kalender importiert'
+        : `${newGuests.length} neue Gäste aus Airbnb-Kalender importiert`;
+    const message = `Bitte Name(n) in /admin ergänzen:\n${lines.join('\n')}`;
+    try {
+      await ha.notify(config.notifyService, message, title);
+    } catch (err) {
+      console.error('[airbnb-sync] Benachrichtigung über neue Gäste fehlgeschlagen:', err.message);
+    }
+  }
+
   return summary;
 }
 
-function start() {
+function start(ha) {
   if (!config.airbnbIcalUrl) return;
   console.log('[airbnb-sync] Airbnb-Kalender-Sync aktiviert (stündlich, plus einmal jetzt beim Start).');
-  runSync();
-  setInterval(runSync, SYNC_INTERVAL_MS);
+  runSync(ha);
+  setInterval(() => runSync(ha), SYNC_INTERVAL_MS);
 }
 
 module.exports = {

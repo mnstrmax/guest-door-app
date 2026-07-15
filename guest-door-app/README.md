@@ -26,7 +26,8 @@ mit:
 - **Name**: Airbnb liefert keinen Namen mehr, daher zunächst der Platzhalter
   "Airbnb-Gast" (in der Gästeliste mit Hinweis-Badge markiert). Trag den echten Namen in
   `/admin` nach, falls du die persönliche Begrüßung möchtest - spätere Syncs
-  überschreiben deine Korrektur nicht wieder.
+  überschreiben deine Korrektur nicht wieder. Für jeden neu importierten Gast kommt
+  eine Push-Benachrichtigung (Check-in-Datum + PIN) als Erinnerung, den Namen zu ergänzen.
 - Rein manuell blockierte Kalendertage (ohne echte Buchung) haben keine Telefonnummer im
   Feed und werden automatisch übersprungen, es wird kein Gast dafür angelegt.
 
@@ -38,6 +39,42 @@ bleibt aber sichtbar in der Liste, statt automatisch gelöscht zu werden. Manuel
 **Der Kalender-Link ist geheim** wie ein Passwort (er verrät Buchungszeiträume) und wird
 genau wie alle anderen persönlichen Werte nur in der Add-on-Konfiguration bzw. `.env`
 gespeichert, nie im Quellcode/Git.
+
+## E-Mail-Sync: Namen automatisch aus Buchungsmails ergänzen
+
+Der Kalender-Import (siehe oben) liefert keinen Gastnamen und keine Nachrichten des
+Gasts - beides steht aber in der Buchungsbestätigungsmail, die Airbnb bei jeder neuen
+Reservierung verschickt. Ist ein IMAP-Postfach konfiguriert, sucht die App dort stündlich
+danach und ergänzt automatisch importierte Gäste, deren Name noch der Platzhalter
+"Airbnb-Gast" ist:
+
+1. In der Add-on-Konfiguration eintragen: `email_imap_host` (z. B. `imap.gmail.com`),
+   `email_imap_user`, `email_imap_password` (bei Postfächern mit 2FA ein App-Passwort
+   verwenden, das normale Passwort funktioniert dann meist nicht per IMAP), optional
+   `email_imap_port` (Standard `993`) und `email_imap_mailbox` (Standard `INBOX`).
+2. Fertig - die App durchsucht ab dem nächsten Sync automatisch die letzten 30 Tage nach
+   Buchungsbestätigungsmails von Airbnb (auch manuell über den Button in `/admin`
+   anstoßbar).
+
+Aus jeder passenden Mail werden extrahiert: der volle Gastname, Airbnbs
+Bestätigungscode und eine eventuelle Freitextnachricht des Gasts (z. B. ein Wunsch nach
+früherem Check-in) - letztere erscheint als Notiz unter dem Namen in `/admin` und geht
+per Push an dich raus, du entscheidest selbst, ob und wie du darauf reagierst (die App
+ändert Check-in-Zeiten nie automatisch anhand einer Freitextnachricht).
+
+Die Zuordnung zu einem Gast passiert über den Check-in-Kalendertag: Gibt es dafür
+**genau einen** per Kalender-Sync importierten Gast mit noch unverändertem Platzhalter-
+Namen, wird dieser ergänzt. Bei Mehrdeutigkeit (z. B. zwei Anreisen am selben Tag) oder
+wenn der Kalender-Sync die Reservierung noch nicht angelegt hat, passiert bewusst nichts
+- die Mail wird beim nächsten Durchlauf erneut geprüft, statt riskiert, den falschen
+Gast zu beschriften. Jede Mail wird nur einmal verarbeitet (unabhängig vom
+"gelesen"-Status im Postfach, den z. B. auch die Mail-App auf deinem iPhone verändern
+könnte).
+
+**Die IMAP-Zugangsdaten sind geheim** wie jedes andere Passwort und landen nie im
+Quellcode/Git, nur in der Add-on-Konfiguration bzw. `.env`. Ohne konfiguriertes Postfach
+bleibt dieses Feature komplett inaktiv, der Name muss dann weiterhin manuell in `/admin`
+nachgetragen werden.
 
 ## Rückkehrgäste: Menü statt erneutem Klingel-Ablauf
 
@@ -85,6 +122,24 @@ Daraus baut die App in jeder Sprache automatisch einen korrekt übersetzten Satz
 z. B. "3. Obergeschoss rechts" / "3rd floor, on the right" / "3e étage, à droite" /
 "3ª planta, a la derecha". Lässt du sie leer, fällt die App auf generische Sätze ohne
 diese Details zurück.
+
+## ⚠️ Update auf 1.8.0: Neue Abhängigkeiten für den E-Mail-Sync
+
+Für den optionalen E-Mail-Sync (siehe oben) kommen erstmals zwei zusätzliche
+npm-Pakete dazu (`imapflow`, `mailparser`) - bisher kam die App bewusst mit nur drei
+minimalen Abhängigkeiten aus. Ein IMAP-Client und E-Mail-Parser von Grund auf selbst zu
+bauen wäre bei der Vielfalt realer Postfach-/MIME-Eigenheiten deutlich fehleranfälliger
+gewesen als bei den bisherigen selbstgebauten Teilen (iCal, TOTP) - deshalb hier bewusst
+auf bewährte, weit verbreitete Bibliotheken gesetzt.
+
+- **Standalone (Docker Compose/`npm start`)**: nach dem Update einmal `npm install`
+  erneut ausführen (bzw. bei Docker Compose reicht `docker compose up -d --build`, das
+  baut das Image mit den neuen Abhängigkeiten neu).
+- **Home Assistant Add-on**: keine Aktion nötig, der Supervisor baut das Image beim
+  Add-on-Update automatisch neu (`npm install` läuft im Dockerfile).
+
+Ohne konfiguriertes IMAP-Postfach (`email_imap_host`/`-user`/`-password`) ändert sich
+am Verhalten sonst nichts - das Feature ist rein additiv und standardmäßig inaktiv.
 
 ## ⚠️ Update auf 1.7.0: Admin-Login jetzt mit Session + optionaler 2FA
 
@@ -252,10 +307,12 @@ Add-on Store → ⋮ → Repositories**. Danach direkt mit Schritt 3 unten weite
    benachrichtigen lassen"), `guestroom_climate_entity_id`/
    `guestroom_ceiling_light_entity_id`/`guestroom_floor_light_entity_id` (siehe
    Abschnitt "Zimmersteuerung") sowie `airbnb_ical_url`/`default_checkin_time`/
-   `default_checkout_time` (siehe Abschnitt "Automatischer Gäste-Import") sowie optional
-   `admin_username` (Standard `admin`) und `admin_totp_secret` für 2FA (siehe Abschnitt
-   "Update auf 1.7.0") – alles direkt über die HA-Oberfläche, kein manuelles Token nötig
-   (der Supervisor stellt automatisch Zugriff auf die Core-API bereit).
+   `default_checkout_time` (siehe Abschnitt "Automatischer Gäste-Import"),
+   `email_imap_host`/`email_imap_user`/`email_imap_password`/`email_imap_mailbox` (siehe
+   Abschnitt "E-Mail-Sync") sowie optional `admin_username` (Standard `admin`) und
+   `admin_totp_secret` für 2FA (siehe Abschnitt "Update auf 1.7.0") – alles direkt über
+   die HA-Oberfläche, kein manuelles Token nötig (der Supervisor stellt automatisch
+   Zugriff auf die Core-API bereit).
 5. Add-on **starten**. Web-UI unter `http://<home-assistant-ip>:3000`, Gäste-Verwaltung
    unter `http://<home-assistant-ip>:3000/admin` (Login über `/admin/login`: Benutzername
    = `admin_username` bzw. `admin`, Passwort = `admin_password`, optional 2FA-Code).
@@ -289,6 +346,12 @@ davorschalten – siehe Sicherheitshinweise.
   davorgeschaltet ist das nur für den Einsatz im vertrauenswürdigen lokalen Netz gedacht.
 - Die Haustür öffnet sich ausschließlich, wenn zuvor eine gültige PIN eingegeben wurde
   **und** danach geklingelt wird – ein Klingeln allein öffnet nichts.
+- Der E-Mail-Sync verbindet sich per TLS (Port 993) mit dem konfigurierten Postfach und
+  liest dort nur Absender/Betreff/Text der zuletzt eingegangenen Mails - schreibt oder
+  löscht nichts. Ein aus einer Buchungsmail erkannter Name/Notiz wird nur übernommen,
+  wenn sich der Check-in-Tag eindeutig genau einem bereits per Kalender importierten,
+  noch unbenannten Gast zuordnen lässt (siehe Abschnitt "E-Mail-Sync") - bei
+  Mehrdeutigkeit passiert nichts automatisch.
 
 ## Anpassungen
 

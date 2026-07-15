@@ -20,6 +20,7 @@ const {
 const { createAdminSession, isValidAdminSession, destroyAdminSession } = require('./adminSessions');
 const { verifyTotp, generateBase32Secret, buildOtpauthUri } = require('./totp');
 const airbnbSync = require('./airbnbSync');
+const emailSync = require('./emailSync');
 
 console.log(`[app] Starte im Modus: ${config.mode}`);
 console.log(`[app] imagesDir = ${config.imagesDir} (existiert: ${fs.existsSync(config.imagesDir)})`);
@@ -101,7 +102,10 @@ const ha = new HAClient({
   },
 });
 ha.connect();
-airbnbSync.start();
+airbnbSync.start(ha);
+// Läuft bewusst nach airbnbSync.start(), damit ein per Kalender importierter Gast beim
+// ersten Mail-Sync-Durchlauf möglichst schon existiert (siehe emailSync.js).
+emailSync.start(ha);
 
 function getClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
@@ -483,7 +487,21 @@ app.post('/api/admin/sync-airbnb', requireAdminSession, async (req, res) => {
   if (!config.airbnbIcalUrl) {
     return res.status(400).json({ error: 'Kein Airbnb-Kalender-Link konfiguriert (airbnb_ical_url).' });
   }
-  const result = await airbnbSync.runSync();
+  const result = await airbnbSync.runSync(ha);
+  if (result?.error) {
+    return res.status(502).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+// Manueller Anstoß des E-Mail-Syncs (Name/Notiz aus Airbnb-Buchungsbestätigungsmails,
+// siehe emailSync.js) - praktisch, um nach einer frischen Buchung nicht bis zu einer
+// Stunde warten zu müssen.
+app.post('/api/admin/sync-email', requireAdminSession, async (req, res) => {
+  if (!config.hasEmailSync) {
+    return res.status(400).json({ error: 'Kein E-Mail-Postfach konfiguriert (email_imap_host/-user/-password).' });
+  }
+  const result = await emailSync.runSync(ha);
   if (result?.error) {
     return res.status(502).json({ error: result.error });
   }

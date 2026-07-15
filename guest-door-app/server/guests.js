@@ -7,7 +7,7 @@ const config = require('./config');
  * Gäste liegen in einer JSON-Datei (addon: /data/guests.json, standalone: guests.json),
  * verwaltet über die /admin-Seite. Wird bei jedem Aufruf frisch von der Platte gelesen,
  * damit Änderungen sofort wirken - kein Neustart nötig.
- * Jeder Gast: { id, name, pin, checkIn, checkOut, checkedInAt, icalUid }
+ * Jeder Gast: { id, name, pin, checkIn, checkOut, checkedInAt, icalUid, confirmationCode, note }
  * checkedInAt: null, bis der Gast einmal den kompletten Tür-Ablauf durchlaufen und
  * "Alles in Ordnung" bestätigt hat - ab dann bekommt er bei erneuter PIN-Eingabe ein
  * Menü (Türen nochmal öffnen / Zimmer steuern) statt wieder des Klingel-Ablaufs.
@@ -16,6 +16,10 @@ const config = require('./config');
  * iCal-Feed, damit spätere Syncs denselben Gast aktualisieren statt zu duplizieren, und
  * damit der Sync manuell (ohne icalUid) angelegte Gäste niemals anfasst. null bei
  * manuell über /admin angelegten Gästen.
+ * confirmationCode/note: optional, kommen aus der Airbnb-Buchungsbestätigungsmail (siehe
+ * emailSync.js/emailParse.js) - confirmationCode ist Airbnbs Buchungscode (z.B.
+ * "HM4QZY53HT"), note eine eventuelle Freitextnachricht des Gasts (z.B. Wunsch nach
+ * früherem Check-in). Beides null, bis ein E-Mail-Sync sie gefunden hat.
  */
 function loadGuests() {
   try {
@@ -36,7 +40,17 @@ function saveGuests(guests) {
 
 function addGuest({ name, pin, checkIn, checkOut }) {
   const guests = loadGuests();
-  const guest = { id: crypto.randomUUID(), name, pin, checkIn, checkOut, checkedInAt: null, icalUid: null };
+  const guest = {
+    id: crypto.randomUUID(),
+    name,
+    pin,
+    checkIn,
+    checkOut,
+    checkedInAt: null,
+    icalUid: null,
+    confirmationCode: null,
+    note: null,
+  };
   guests.push(guest);
   saveGuests(guests);
   return guest;
@@ -54,7 +68,17 @@ function upsertSyncedGuest({ icalUid, name, pin, checkIn, checkOut }) {
   const guests = loadGuests();
   const idx = guests.findIndex((g) => g.icalUid === icalUid);
   if (idx === -1) {
-    const guest = { id: crypto.randomUUID(), name, pin, checkIn, checkOut, checkedInAt: null, icalUid };
+    const guest = {
+      id: crypto.randomUUID(),
+      name,
+      pin,
+      checkIn,
+      checkOut,
+      checkedInAt: null,
+      icalUid,
+      confirmationCode: null,
+      note: null,
+    };
     guests.push(guest);
     saveGuests(guests);
     return { guest, created: true };
@@ -87,6 +111,42 @@ function invalidateMissingSyncedGuests(currentUids) {
 }
 
 /**
+ * Sucht unter den per iCal-Sync importierten Gästen (icalUid gesetzt) genau einen mit
+ * demselben Check-in-Kalendertag, dessen Name noch der Platzhalter "Airbnb-Gast" ist, und
+ * trägt dort den echten Namen samt Bestätigungscode/Notiz aus der Buchungsbestätigungsmail
+ * ein (siehe emailSync.js). Gibt bei Erfolg den aktualisierten Gast zurück, sonst null -
+ * sowohl wenn gar kein Kandidat gefunden wurde (z.B. weil der Kalender-Sync noch nicht
+ * gelaufen ist - der nächste Mail-Sync-Durchlauf versucht es dann erneut) als auch wenn
+ * mehrere Kandidaten am selben Tag infrage kämen (dann lieber nichts anfassen, statt
+ * riskieren, den falschen Gast zu beschriften).
+ */
+function applyEmailEnrichment({ checkInDate, name, confirmationCode, note }) {
+  const guests = loadGuests();
+  const dayStart = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const candidateIds = guests
+    .filter((g) => {
+      if (!g.icalUid || g.name !== 'Airbnb-Gast') return false;
+      const ci = new Date(g.checkIn);
+      return ci >= dayStart && ci < dayEnd;
+    })
+    .map((g) => g.id);
+
+  if (candidateIds.length !== 1) return null;
+
+  const idx = guests.findIndex((g) => g.id === candidateIds[0]);
+  guests[idx] = {
+    ...guests[idx],
+    name: name || guests[idx].name,
+    confirmationCode: confirmationCode || guests[idx].confirmationCode || null,
+    note: note || guests[idx].note || null,
+  };
+  saveGuests(guests);
+  return guests[idx];
+}
+
+/**
  * Markiert einen Gast als "hat den Tür-Ablauf schon einmal komplett durchlaufen".
  * Wird beim Klick auf "Alles in Ordnung" aufgerufen (auch bei erneutem Öffnen der
  * Türen über das Rückkehrgast-Menü - schadet nicht, aktualisiert nur den Zeitstempel).
@@ -104,6 +164,9 @@ function updateGuest(id, { name, pin, checkIn, checkOut }) {
   const guests = loadGuests();
   const idx = guests.findIndex((g) => g.id === id);
   if (idx === -1) return null;
+  // confirmationCode/note bleiben beim manuellen Bearbeiten unangetastet (kommen nur aus
+  // dem E-Mail-Sync, kein Formularfeld in /admin) - würden sonst durch das Editier-Formular
+  // versehentlich auf undefined überschrieben.
   guests[idx] = { ...guests[idx], name, pin, checkIn, checkOut };
   saveGuests(guests);
   return guests[idx];
@@ -144,4 +207,5 @@ module.exports = {
   markCheckedIn,
   upsertSyncedGuest,
   invalidateMissingSyncedGuests,
+  applyEmailEnrichment,
 };

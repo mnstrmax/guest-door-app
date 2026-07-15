@@ -119,10 +119,26 @@ if (isAddon) {
     airbnbIcalUrl: opts.airbnb_ical_url || null,
     defaultCheckinTime: opts.default_checkin_time || '15:00',
     defaultCheckoutTime: opts.default_checkout_time || '11:00',
+    // Optional: IMAP-Zugang zu dem Postfach, an das Airbnb Buchungsbestätigungsmails
+    // schickt. Ist Host+User+Passwort gesetzt, holt die App daraus den echten Gastnamen
+    // und eine eventuelle Nachricht des Gasts (z.B. Wunsch nach früherem Check-in) und
+    // ergänzt damit automatisch importierte Gäste (siehe emailSync.js). Zugangsdaten sind
+    // geheim wie ein Passwort, landen nie im Quellcode/Git. Ein App-Passwort verwenden,
+    // falls das Postfach 2FA nutzt (normales Passwort funktioniert dann nicht per IMAP).
+    emailImapHost: opts.email_imap_host || null,
+    emailImapPort: normalizeInt(opts.email_imap_port) || 993,
+    emailImapUser: opts.email_imap_user || null,
+    emailImapPassword: opts.email_imap_password || null,
+    emailImapMailbox: opts.email_imap_mailbox || 'INBOX',
     // Gäste liegen in einer persistenten JSON-Datei, verwaltet über die /admin-Seite -
     // nicht mehr über die Add-on-Optionen (die bieten keinen Datum/Zeit-Picker).
     guests: null,
     guestsFile: process.env.GUESTS_FILE_OVERRIDE || '/data/guests.json',
+    // Merkt sich, welche Buchungsbestätigungsmails schon verarbeitet wurden (per
+    // Message-ID), damit ein E-Mail-Sync sie nicht bei jedem Durchlauf erneut anfasst -
+    // unabhängig vom "gelesen"-Status im Postfach, den auch andere Mail-Clients ändern
+    // könnten (siehe emailSync.js).
+    emailStateFile: process.env.EMAIL_STATE_FILE_OVERRIDE || '/data/email_sync_state.json',
     port: 3000,
   };
 } else {
@@ -157,11 +173,20 @@ if (isAddon) {
     airbnbIcalUrl: process.env.AIRBNB_ICAL_URL || null,
     defaultCheckinTime: process.env.DEFAULT_CHECKIN_TIME || '15:00',
     defaultCheckoutTime: process.env.DEFAULT_CHECKOUT_TIME || '11:00',
+    emailImapHost: process.env.EMAIL_IMAP_HOST || null,
+    emailImapPort: normalizeInt(process.env.EMAIL_IMAP_PORT) || 993,
+    emailImapUser: process.env.EMAIL_IMAP_USER || null,
+    emailImapPassword: process.env.EMAIL_IMAP_PASSWORD || null,
+    emailImapMailbox: process.env.EMAIL_IMAP_MAILBOX || 'INBOX',
     guests: null,
     guestsFile: path.join(__dirname, '..', 'guests.json'),
+    emailStateFile: path.join(__dirname, '..', 'email_sync_state.json'),
     port: process.env.PORT || 3000,
   };
 }
+
+// E-Mail-Sync nur aktiv, wenn IMAP-Host, Benutzername und Passwort vollständig gesetzt sind.
+config.hasEmailSync = !!(config.emailImapHost && config.emailImapUser && config.emailImapPassword);
 
 // Zimmersteuerung nur anbieten, wenn mindestens eine der drei Entities konfiguriert ist.
 config.hasRoomControls = !!(

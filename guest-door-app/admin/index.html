@@ -80,6 +80,14 @@
   }
   .badge.airbnb { background: #ffe1e6; color: #b3003c; }
   .badge.warn { background: #fff3cd; color: #8a6500; margin-left: 4px; }
+  .guest-note {
+    display: block;
+    font-size: 0.78rem;
+    color: #666;
+    font-style: italic;
+    margin-top: 2px;
+    max-width: 260px;
+  }
   .pin-mask {
     cursor: pointer;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -127,6 +135,7 @@
     <div class="toolbar">
       <button class="add-btn" id="add-btn">+ Gast hinzufügen</button>
       <button class="secondary" id="sync-btn">Airbnb-Kalender jetzt synchronisieren</button>
+      <button class="secondary" id="sync-email-btn">Buchungsmails jetzt durchsuchen</button>
       <span class="sync-status" id="sync-status"></span>
     </div>
 
@@ -227,8 +236,15 @@
         const tr = document.createElement('tr');
         const sourceBadge = g.icalUid ? '<span class="badge airbnb">Airbnb</span>' : '<span class="badge">Manuell</span>';
         const nameWarn = g.icalUid && g.name === 'Airbnb-Gast' ? '<span class="badge warn">Name anpassen</span>' : '';
+        // Notiz/Bestätigungscode kommen aus einer per E-Mail-Sync erkannten Buchungsmail
+        // (siehe emailSync.js) - z.B. ein Wunsch nach früherem Check-in. Rein informativ,
+        // kein Formularfeld.
+        const noteHtml = g.note
+          ? `<span class="guest-note" title="${escapeHtml(g.note)}">${escapeHtml(g.note)}</span>`
+          : '';
+        const codeTitle = g.confirmationCode ? ` title="Bestätigungscode: ${escapeHtml(g.confirmationCode)}"` : '';
         tr.innerHTML = `
-          <td>${escapeHtml(g.name)}${nameWarn}</td>
+          <td${codeTitle}>${escapeHtml(g.name)}${nameWarn}${noteHtml}</td>
           <td><span class="pin-mask" title="Klicken zum Anzeigen">••••</span></td>
           <td>${escapeHtml(fmt(g.checkIn))}</td>
           <td>${escapeHtml(fmt(g.checkOut))}</td>
@@ -342,6 +358,23 @@
         syncStatus.textContent = `Fehler: ${err.message}`;
       } finally {
         syncBtn.disabled = false;
+      }
+    });
+
+    const syncEmailBtn = document.getElementById('sync-email-btn');
+    syncEmailBtn.addEventListener('click', async () => {
+      syncEmailBtn.disabled = true;
+      syncStatus.textContent = 'Durchsuche Postfach …';
+      try {
+        const result = await api('/api/admin/sync-email', { method: 'POST' });
+        syncStatus.textContent =
+          `${result.checked} Buchungsmail(s) geprüft, ${result.matched} Gast/Gäste ergänzt` +
+          (result.skippedAlready ? `, ${result.skippedAlready} bereits bekannt` : '') + '.';
+        await loadGuests();
+      } catch (err) {
+        syncStatus.textContent = `Fehler: ${err.message}`;
+      } finally {
+        syncEmailBtn.disabled = false;
       }
     });
 
