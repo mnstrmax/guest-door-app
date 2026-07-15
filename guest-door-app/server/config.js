@@ -130,6 +130,12 @@ if (isAddon) {
     emailImapUser: opts.email_imap_user || null,
     emailImapPassword: opts.email_imap_password || null,
     emailImapMailbox: opts.email_imap_mailbox || 'INBOX',
+    // Optional (Standard: aus): löscht eine Buchungsmail per IMAP, sobald sie erfolgreich
+    // einem Gast zugeordnet wurde. Mails ohne eindeutigen Treffer werden nie gelöscht
+    // (siehe emailSync.js) - nur was tatsächlich verarbeitet wurde. Achtung: je nach
+    // Mail-Provider landet die Mail dabei sofort endgültig im Nirwana oder zunächst noch
+    // im Papierkorb (z.B. Gmail räumt seinen Papierkorb nach 30 Tagen automatisch leer).
+    emailDeleteAfterSync: opts.email_delete_after_sync === true,
     // Gäste liegen in einer persistenten JSON-Datei, verwaltet über die /admin-Seite -
     // nicht mehr über die Add-on-Optionen (die bieten keinen Datum/Zeit-Picker).
     guests: null,
@@ -178,6 +184,7 @@ if (isAddon) {
     emailImapUser: process.env.EMAIL_IMAP_USER || null,
     emailImapPassword: process.env.EMAIL_IMAP_PASSWORD || null,
     emailImapMailbox: process.env.EMAIL_IMAP_MAILBOX || 'INBOX',
+    emailDeleteAfterSync: process.env.EMAIL_DELETE_AFTER_SYNC === 'true',
     guests: null,
     guestsFile: path.join(__dirname, '..', 'guests.json'),
     emailStateFile: path.join(__dirname, '..', 'email_sync_state.json'),

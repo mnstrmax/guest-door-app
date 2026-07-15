@@ -76,6 +76,11 @@ async function runSync(ha) {
   let checked = 0;
   let matched = 0;
   let skippedAlready = 0;
+  let deleted = 0;
+  // UIDs erfolgreich verarbeiteter Mails werden nur gesammelt und ERST NACH der
+  // fetch()-Schleife gelöscht (siehe unten) - ImapFlow warnt ausdrücklich davor, während
+  // eines laufenden fetch() weitere IMAP-Befehle abzusetzen (Deadlock-Gefahr).
+  const uidsToDelete = [];
 
   try {
     await client.connect();
@@ -141,6 +146,10 @@ async function runSync(ha) {
           if (enriched) {
             matched += 1;
             newProcessedIds.push(messageId);
+            // Nur erfolgreich zugeordnete Mails werden zum Löschen vorgemerkt - Mails ohne
+            // eindeutigen Treffer bleiben unangetastet, damit ein späterer Sync sie erneut
+            // versuchen kann (siehe else-Zweig unten).
+            if (config.emailDeleteAfterSync) uidsToDelete.push(msg.uid);
             if (ha) {
               const noteLine = note ? `\nNachricht: ${note}` : '';
               try {
@@ -158,6 +167,19 @@ async function runSync(ha) {
                 'versuche es beim nächsten Sync erneut.'
             );
           }
+        }
+      }
+
+      // Löschen erst hier, NACH der fetch()-Schleife (siehe Warnung oben) und noch
+      // innerhalb desselben Mailbox-Locks. Best-effort: schlägt das Löschen fehl (z.B.
+      // Provider-Eigenheit), ist das kein Grund, den ganzen Sync als fehlgeschlagen zu
+      // werten - die Gäste-Daten sind zu diesem Zeitpunkt bereits erfolgreich ergänzt.
+      if (uidsToDelete.length) {
+        try {
+          await client.messageDelete(uidsToDelete, { uid: true });
+          deleted = uidsToDelete.length;
+        } catch (err) {
+          console.error('[email-sync] Löschen verarbeiteter Mails fehlgeschlagen:', err.message);
         }
       }
     } finally {
@@ -182,9 +204,10 @@ async function runSync(ha) {
 
   saveProcessedIds(newProcessedIds);
 
-  const summary = { checked, matched, skippedAlready };
+  const summary = { checked, matched, skippedAlready, deleted };
   console.log(
-    `[email-sync] ${checked} Mail(s) geprüft, ${matched} Gast/Gäste ergänzt, ${skippedAlready} bereits bekannt.`
+    `[email-sync] ${checked} Mail(s) geprüft, ${matched} Gast/Gäste ergänzt, ${skippedAlready} bereits bekannt` +
+      (config.emailDeleteAfterSync ? `, ${deleted} Mail(s) gelöscht.` : '.')
   );
   return summary;
 }

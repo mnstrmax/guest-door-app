@@ -65,7 +65,7 @@ manuellen Weiterleiten: **inline weiterleiten**, nicht "als Anhang" - die Erkenn
 Name/Datum/Nachricht braucht den ursprünglichen Mailinhalt direkt im Text, nicht als
 angehängte `.eml`-Datei.
 
-Aus jeder passenden Mail werden extrahiert: der volle Gastname, Airbnbs
+Aus jeder passenden Mail werden extrahiert: der Vorname des Gasts, Airbnbs
 Bestätigungscode und eine eventuelle Freitextnachricht des Gasts (z. B. ein Wunsch nach
 früherem Check-in) - letztere erscheint als Notiz unter dem Namen in `/admin` und geht
 per Push an dich raus, du entscheidest selbst, ob und wie du darauf reagierst (die App
@@ -79,6 +79,13 @@ wenn der Kalender-Sync die Reservierung noch nicht angelegt hat, passiert bewuss
 Gast zu beschriften. Jede Mail wird nur einmal verarbeitet (unabhängig vom
 "gelesen"-Status im Postfach, den z. B. auch die Mail-App auf deinem iPhone verändern
 könnte).
+
+Optional (`email_delete_after_sync`, Standard aus) löscht die App eine Buchungsmail per
+IMAP, sobald sie erfolgreich einem Gast zugeordnet wurde - Mails ohne eindeutigen Treffer
+werden nie gelöscht, nur was tatsächlich verarbeitet wurde. Je nach Mail-Provider landet
+die Mail dabei sofort endgültig im Nirwana oder zunächst noch im Papierkorb (z. B. räumt
+Gmail seinen Papierkorb automatisch nach 30 Tagen leer) - im Zweifel beim eigenen
+Provider nachsehen, wie lange gelöschte Mails dort wiederherstellbar bleiben.
 
 **Die IMAP-Zugangsdaten sind geheim** wie jedes andere Passwort und landen nie im
 Quellcode/Git, nur in der Add-on-Konfiguration bzw. `.env`. Ohne konfiguriertes Postfach

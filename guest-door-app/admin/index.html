@@ -369,7 +369,8 @@
         const result = await api('/api/admin/sync-email', { method: 'POST' });
         syncStatus.textContent =
           `${result.checked} Buchungsmail(s) geprüft, ${result.matched} Gast/Gäste ergänzt` +
-          (result.skippedAlready ? `, ${result.skippedAlready} bereits bekannt` : '') + '.';
+          (result.skippedAlready ? `, ${result.skippedAlready} bereits bekannt` : '') +
+          (result.deleted ? `, ${result.deleted} Mail(s) gelöscht` : '') + '.';
         await loadGuests();
       } catch (err) {
         syncStatus.textContent = `Fehler: ${err.message}`;
