@@ -73,6 +73,9 @@
   }
   .row { display: flex; gap: 12px; }
   .row .field { flex: 1; }
+  .datetime-pair { display: flex; gap: 8px; }
+  .datetime-pair input[type="date"] { flex: 1.3; min-width: 0; }
+  .datetime-pair input[type="time"] { flex: 1; min-width: 0; }
   .error { color: #d33; font-size: 0.85rem; min-height: 1.2em; }
   .add-btn { margin-top: 16px; }
   .toolbar { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
@@ -233,12 +236,18 @@
       </div>
       <div class="row">
         <div class="field">
-          <label for="f-checkin">Check-in</label>
-          <input type="datetime-local" id="f-checkin" required>
+          <label for="f-checkin-date">Check-in</label>
+          <div class="datetime-pair">
+            <input type="date" id="f-checkin-date" required>
+            <input type="time" id="f-checkin-time" required>
+          </div>
         </div>
         <div class="field">
-          <label for="f-checkout">Check-out</label>
-          <input type="datetime-local" id="f-checkout" required>
+          <label for="f-checkout-date">Check-out</label>
+          <div class="datetime-pair">
+            <input type="date" id="f-checkout-date" required>
+            <input type="time" id="f-checkout-time" required>
+          </div>
         </div>
       </div>
       <p class="error" id="form-error"></p>
@@ -293,7 +302,7 @@
 
     // Zeigt ein ISO-Datum lesbar an (lokale Zeitzone), unabhängig davon, ob es als
     // "naiver" lokaler String (manuell über dieses Formular angelegt) oder als
-    // UTC-ISO-String mit "Z" (vom Airbnb-Sync, siehe toDatetimeLocalValue) gespeichert ist.
+    // UTC-ISO-String mit "Z" (vom Airbnb-Sync, siehe splitDateTime) gespeichert ist.
     function fmt(dt) {
       if (!dt) return '';
       const d = new Date(dt);
@@ -302,16 +311,28 @@
       return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
-    // <input type="datetime-local"> akzeptiert nur "YYYY-MM-DDTHH:mm" (lokal, ohne
-    // Sekunden/Zeitzone). Vom Sync kommende Gäste speichern volle UTC-ISO-Strings
-    // (toISOString()) - ohne diese Umwandlung würde das Bearbeiten-Formular für sie leer
-    // bleiben, weil der Browser den Wert sonst als ungültig verwirft.
-    function toDatetimeLocalValue(dt) {
-      if (!dt) return '';
+    // Zerlegt ein Datum in die Werte für die getrennten <input type="date">/<input
+    // type="time">-Felder (lokale Zeitzone). Vom Sync kommende Gäste speichern volle
+    // UTC-ISO-Strings (toISOString()) - ohne diese Umwandlung würde das
+    // Bearbeiten-Formular für sie leer bleiben, weil der Browser den Wert sonst als
+    // ungültig verwirft.
+    function splitDateTime(dt) {
+      if (!dt) return { date: '', time: '' };
       const d = new Date(dt);
-      if (isNaN(d)) return '';
+      if (isNaN(d)) return { date: '', time: '' };
       const pad = (n) => String(n).padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      return {
+        date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+        time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      };
+    }
+
+    // Fügt die Werte der getrennten Datum-/Uhrzeit-Felder wieder zu genau dem Format
+    // zusammen, das vorher <input type="datetime-local"> lieferte ("YYYY-MM-DDTHH:mm") -
+    // damit bleibt das Speicherformat in guests.json unverändert.
+    function combineDateTime(dateVal, timeVal) {
+      if (!dateVal || !timeVal) return '';
+      return `${dateVal}T${timeVal}`;
     }
 
     // Mitternacht des heutigen Tages (lokale Zeitzone) bzw. der darauffolgenden -
@@ -459,8 +480,12 @@
       editorTitle.textContent = guest ? 'Gast bearbeiten' : 'Gast hinzufügen';
       document.getElementById('f-name').value = guest ? guest.name : '';
       document.getElementById('f-pin').value = guest ? guest.pin : '';
-      document.getElementById('f-checkin').value = guest ? toDatetimeLocalValue(guest.checkIn) : '';
-      document.getElementById('f-checkout').value = guest ? toDatetimeLocalValue(guest.checkOut) : '';
+      const checkinParts = splitDateTime(guest ? guest.checkIn : null);
+      document.getElementById('f-checkin-date').value = checkinParts.date;
+      document.getElementById('f-checkin-time').value = checkinParts.time;
+      const checkoutParts = splitDateTime(guest ? guest.checkOut : null);
+      document.getElementById('f-checkout-date').value = checkoutParts.date;
+      document.getElementById('f-checkout-time').value = checkoutParts.time;
       formError.textContent = '';
       editor.classList.remove('hidden');
       editor.scrollIntoView({ behavior: 'smooth' });
@@ -552,8 +577,14 @@
       const body = {
         name: document.getElementById('f-name').value.trim(),
         pin: document.getElementById('f-pin').value.trim(),
-        checkIn: document.getElementById('f-checkin').value,
-        checkOut: document.getElementById('f-checkout').value,
+        checkIn: combineDateTime(
+          document.getElementById('f-checkin-date').value,
+          document.getElementById('f-checkin-time').value
+        ),
+        checkOut: combineDateTime(
+          document.getElementById('f-checkout-date').value,
+          document.getElementById('f-checkout-time').value
+        ),
       };
       try {
         if (editingId) {
