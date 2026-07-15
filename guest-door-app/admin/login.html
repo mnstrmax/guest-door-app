@@ -53,19 +53,18 @@
   <main class="card">
     <h1>Guest Door App – Admin</h1>
     <form id="login-form">
-      <div class="field">
+      <div class="field" id="field-username">
         <label for="username">Benutzername</label>
         <input type="text" id="username" autocomplete="username" required autofocus>
       </div>
-      <div class="field">
+      <div class="field" id="field-password">
         <label for="password">Passwort</label>
         <input type="password" id="password" autocomplete="current-password" required>
       </div>
-      <div class="field">
+      <div class="field" id="field-totp" style="display: none;">
         <label for="totp">Code aus der Authenticator-App</label>
-        <input type="text" id="totp" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" placeholder="nur falls 2FA aktiviert ist">
+        <input type="text" id="totp" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
       </div>
-      <p class="hint">Leer lassen, falls du noch keine Zwei-Faktor-Authentifizierung eingerichtet hast.</p>
       <button type="submit" id="submit-btn">Anmelden</button>
       <p class="error" id="error"></p>
     </form>
@@ -74,27 +73,44 @@
     const form = document.getElementById('login-form');
     const errorEl = document.getElementById('error');
     const submitBtn = document.getElementById('submit-btn');
+    let totpRequired = false;
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       errorEl.textContent = '';
       submitBtn.disabled = true;
       try {
+        const body = {
+          username: document.getElementById('username').value,
+          password: document.getElementById('password').value,
+        };
+        if (totpRequired) {
+          body.totp = document.getElementById('totp').value.trim();
+        }
         const res = await fetch('/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: document.getElementById('username').value,
-            password: document.getElementById('password').value,
-            totp: document.getElementById('totp').value.trim(),
-          }),
+          body: JSON.stringify(body),
         });
         const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.totpRequired) {
+          // Benutzername+Passwort korrekt - jetzt erst nach dem 2FA-Code fragen.
+          totpRequired = true;
+          document.getElementById('field-username').style.display = 'none';
+          document.getElementById('field-password').style.display = 'none';
+          document.getElementById('field-totp').style.display = 'block';
+          document.getElementById('totp').focus();
+          submitBtn.disabled = false;
+          return;
+        }
+
         if (!res.ok) {
           errorEl.textContent = data.error || `Fehler (${res.status})`;
           submitBtn.disabled = false;
           return;
         }
+
         window.location.href = '/admin';
       } catch (err) {
         errorEl.textContent = 'Verbindung zum Server fehlgeschlagen.';

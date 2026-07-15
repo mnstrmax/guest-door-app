@@ -425,16 +425,34 @@ app.post('/admin/login', async (req, res) => {
   const { username, password, totp } = req.body || {};
   const usernameOk = timingSafeEqualStr(username, config.adminUsername);
   const passwordOk = typeof password === 'string' && timingSafeEqualStr(password, config.adminPassword);
-  const totpOk = config.adminTotpSecret ? verifyTotp(config.adminTotpSecret, totp) : true;
 
-  if (!usernameOk || !passwordOk || !totpOk) {
+  if (!usernameOk || !passwordOk) {
     recordAdminLoginAttempt(ip);
     await ha.notify(
       config.notifyService,
       'Fehlgeschlagener Login-Versuch im Admin-Bereich der Guest Door App.',
       'Guest Door App ⚠️'
     );
-    return res.status(401).json({ error: 'Benutzername, Passwort oder Code falsch.' });
+    return res.status(401).json({ error: 'Benutzername oder Passwort falsch.' });
+  }
+
+  // Zweistufiger Login: Schritt 1 schickt nur Benutzername+Passwort ("totp" fehlt im
+  // Body). Sind die korrekt und ist 2FA aktiv, wird noch keine Session erstellt und kein
+  // Fehlversuch gezählt - der Client fragt daraufhin erst den Code ab und schickt ihn in
+  // Schritt 2 mit. Ist keine 2FA eingerichtet, entfällt dieser Zwischenschritt komplett.
+  if (config.adminTotpSecret && totp === undefined) {
+    return res.json({ totpRequired: true });
+  }
+
+  const totpOk = config.adminTotpSecret ? verifyTotp(config.adminTotpSecret, totp) : true;
+  if (!totpOk) {
+    recordAdminLoginAttempt(ip);
+    await ha.notify(
+      config.notifyService,
+      'Fehlgeschlagener Login-Versuch im Admin-Bereich der Guest Door App.',
+      'Guest Door App ⚠️'
+    );
+    return res.status(401).json({ error: 'Code falsch.' });
   }
 
   resetAdminLoginAttempts(ip);
