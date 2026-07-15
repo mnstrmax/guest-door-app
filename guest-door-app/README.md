@@ -109,6 +109,20 @@ dann weiterhin einfach den normalen Klingel-Ablauf wie beim ersten Mal.
 
 Der Bestätigungs-Button am Ende schickt außerdem eine Push-Benachrichtigung an dich.
 
+Drückt ein Gast diesen Button nicht (kommt vor), lässt sich das in `/admin` manuell
+nachtragen: Bei einem noch nicht bestätigten Gast erscheint der Button **"Alles OK
+markieren"** in der Aktionen-Spalte - setzt denselben Status wie der reguläre Button in
+der App, danach bekommt der Gast bei erneuter PIN-Eingabe korrekt das Rückkehrgast-Menü.
+
+## Gästeliste in /admin: Heute, Anstehend, Abgelaufen
+
+Die Gästeliste ist in drei Bereiche unterteilt: **Heute** (der Aufenthalt überschneidet
+sich mit dem heutigen Tag - Anreise, Abreise oder mittendrin), **Anstehend** (Check-in
+liegt in der Zukunft, sortiert nach Anreisedatum) und **Abgelaufen** (Check-out liegt in
+der Vergangenheit, sortiert nach Abreisedatum, neueste zuerst). Der abgelaufene Bereich
+ist standardmäßig eingeklappt, damit die Liste übersichtlich bleibt, ohne die Historie
+wegzuwerfen - ein Klick auf "Abgelaufen (n)" klappt ihn auf.
+
 ## Zimmersteuerung (Heizung + Lichter) für Rückkehrgäste
 
 Optional können Gäste im Rückkehrgast-Menü die Heizung sowie zwei Lichter im Zimmer

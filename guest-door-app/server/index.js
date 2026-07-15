@@ -543,6 +543,16 @@ app.delete('/api/admin/guests/:id', requireAdminSession, (req, res) => {
   res.status(204).end();
 });
 
+// Manuelles Nachtragen von "Alles in Ordnung" - für Gäste, die den Button am Ende des
+// Ablaufs selbst nicht gedrückt haben. Setzt denselben checkedInAt-Zeitstempel wie der
+// reguläre /api/confirm-ok-Weg, damit der Gast bei einer erneuten PIN-Eingabe korrekt das
+// Rückkehrgast-Menü statt wieder des Klingel-Ablaufs bekommt.
+app.post('/api/admin/guests/:id/check-in', requireAdminSession, (req, res) => {
+  const guest = markCheckedIn(req.params.id);
+  if (!guest) return res.status(404).json({ error: 'Gast nicht gefunden.' });
+  res.json(guest);
+});
+
 app.listen(config.port, () => {
   console.log(`[app] Server läuft auf Port ${config.port}`);
 });

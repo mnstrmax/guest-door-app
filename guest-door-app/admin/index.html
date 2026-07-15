@@ -80,6 +80,18 @@
   }
   .badge.airbnb { background: #ffe1e6; color: #b3003c; }
   .badge.warn { background: #fff3cd; color: #8a6500; margin-left: 4px; }
+  .badge.ok { background: #dcf5e0; color: #1a7a34; margin-left: 4px; }
+  .group-heading { margin: 24px 0 0; font-size: 1.05rem; }
+  .group-heading:first-of-type { margin-top: 0; }
+  .empty-row td { color: #888; font-style: italic; }
+  details.past-section { margin-top: 24px; }
+  details.past-section summary {
+    cursor: pointer;
+    font-size: 1.05rem;
+    font-weight: 600;
+    padding: 4px 0;
+  }
+  details.past-section table { margin-top: 12px; }
   .guest-note {
     display: block;
     font-size: 0.78rem;
@@ -125,12 +137,31 @@
       <button class="secondary" id="logout-btn">Abmelden</button>
     </div>
 
+    <h2 class="group-heading">Heute</h2>
     <table>
       <thead>
         <tr><th>Name</th><th>PIN</th><th>Check-in</th><th>Check-out</th><th>Quelle</th><th></th></tr>
       </thead>
-      <tbody id="guest-rows"></tbody>
+      <tbody id="today-rows"></tbody>
     </table>
+
+    <h2 class="group-heading">Anstehend</h2>
+    <table>
+      <thead>
+        <tr><th>Name</th><th>PIN</th><th>Check-in</th><th>Check-out</th><th>Quelle</th><th></th></tr>
+      </thead>
+      <tbody id="upcoming-rows"></tbody>
+    </table>
+
+    <details class="past-section">
+      <summary>Abgelaufen (<span id="past-count">0</span>)</summary>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>PIN</th><th>Check-in</th><th>Check-out</th><th>Quelle</th><th></th></tr>
+        </thead>
+        <tbody id="past-rows"></tbody>
+      </table>
+    </details>
 
     <div class="toolbar">
       <button class="add-btn" id="add-btn">+ Gast hinzufügen</button>
@@ -185,7 +216,10 @@
   </div>
 
   <script>
-    const rowsEl = document.getElementById('guest-rows');
+    const todayRowsEl = document.getElementById('today-rows');
+    const upcomingRowsEl = document.getElementById('upcoming-rows');
+    const pastRowsEl = document.getElementById('past-rows');
+    const pastCountEl = document.getElementById('past-count');
     const editor = document.getElementById('editor');
     const editorTitle = document.getElementById('editor-title');
     const formError = document.getElementById('form-error');
@@ -229,56 +263,118 @@
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
+    // Mitternacht des heutigen Tages (lokale Zeitzone) bzw. der darauffolgenden -
+    // Grundlage für die Einteilung in "Heute" (Aufenthalt überschneidet sich mit heute),
+    // "Anstehend" (Check-in erst ab morgen) und "Abgelaufen" (Check-out war vor heute).
+    function todayBounds() {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      return { start, end };
+    }
+
+    function buildGuestRow(g) {
+      const tr = document.createElement('tr');
+      const sourceBadge = g.icalUid ? '<span class="badge airbnb">Airbnb</span>' : '<span class="badge">Manuell</span>';
+      const nameWarn = g.icalUid && g.name === 'Airbnb-Gast' ? '<span class="badge warn">Name anpassen</span>' : '';
+      const checkedInBadge = g.checkedInAt ? '<span class="badge ok">✓ bestätigt</span>' : '';
+      // Notiz/Bestätigungscode kommen aus einer per E-Mail-Sync erkannten Buchungsmail
+      // (siehe emailSync.js) - z.B. ein Wunsch nach früherem Check-in. Rein informativ,
+      // kein Formularfeld.
+      const noteHtml = g.note
+        ? `<span class="guest-note" title="${escapeHtml(g.note)}">${escapeHtml(g.note)}</span>`
+        : '';
+      const codeTitle = g.confirmationCode ? ` title="Bestätigungscode: ${escapeHtml(g.confirmationCode)}"` : '';
+      tr.innerHTML = `
+        <td${codeTitle}>${escapeHtml(g.name)}${nameWarn}${checkedInBadge}${noteHtml}</td>
+        <td><span class="pin-mask" title="Klicken zum Anzeigen">••••</span></td>
+        <td>${escapeHtml(fmt(g.checkIn))}</td>
+        <td>${escapeHtml(fmt(g.checkOut))}</td>
+        <td>${sourceBadge}</td>
+        <td></td>
+      `;
+
+      // PIN standardmäßig maskiert (Schutz vor Mitlesen bei Screensharing o.ä.), per
+      // Klick ein-/ausblendbar. Der echte Wert wird bewusst nicht als data-Attribut im
+      // DOM abgelegt, sondern per Closure gehalten, damit er nicht im HTML-Quelltext
+      // sichtbar ist, bevor er tatsächlich aufgedeckt wurde.
+      const pinSpan = tr.querySelector('.pin-mask');
+      let pinRevealed = false;
+      pinSpan.addEventListener('click', () => {
+        pinRevealed = !pinRevealed;
+        pinSpan.textContent = pinRevealed ? g.pin : '••••';
+      });
+
+      const actionsTd = tr.querySelector('td:last-child');
+
+      // Manuelles Nachtragen von "Alles in Ordnung" - für Gäste, die den Button am Ende
+      // des Ablaufs selbst nicht gedrückt haben. Nur sichtbar, solange das noch nicht
+      // passiert ist.
+      if (!g.checkedInAt) {
+        const okBtn = document.createElement('button');
+        okBtn.textContent = 'Alles OK markieren';
+        okBtn.className = 'secondary';
+        okBtn.onclick = () => markGuestOk(g);
+        actionsTd.appendChild(okBtn);
+      }
+
+      const editBtn = document.createElement('button');
+      editBtn.textContent = 'Bearbeiten';
+      editBtn.className = 'secondary';
+      editBtn.onclick = () => openEditor(g);
+      actionsTd.appendChild(editBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = 'Löschen';
+      delBtn.className = 'danger';
+      delBtn.onclick = () => removeGuest(g);
+      actionsTd.appendChild(delBtn);
+
+      return tr;
+    }
+
+    function renderEmptyRow(tbody, text) {
+      const tr = document.createElement('tr');
+      tr.className = 'empty-row';
+      tr.innerHTML = `<td colspan="6">${escapeHtml(text)}</td>`;
+      tbody.appendChild(tr);
+    }
+
     async function loadGuests() {
       const guests = await api('/api/admin/guests');
-      rowsEl.innerHTML = '';
+      const { start: todayStart, end: todayEnd } = todayBounds();
+
+      const today = [];
+      const upcoming = [];
+      const past = [];
       guests.forEach((g) => {
-        const tr = document.createElement('tr');
-        const sourceBadge = g.icalUid ? '<span class="badge airbnb">Airbnb</span>' : '<span class="badge">Manuell</span>';
-        const nameWarn = g.icalUid && g.name === 'Airbnb-Gast' ? '<span class="badge warn">Name anpassen</span>' : '';
-        // Notiz/Bestätigungscode kommen aus einer per E-Mail-Sync erkannten Buchungsmail
-        // (siehe emailSync.js) - z.B. ein Wunsch nach früherem Check-in. Rein informativ,
-        // kein Formularfeld.
-        const noteHtml = g.note
-          ? `<span class="guest-note" title="${escapeHtml(g.note)}">${escapeHtml(g.note)}</span>`
-          : '';
-        const codeTitle = g.confirmationCode ? ` title="Bestätigungscode: ${escapeHtml(g.confirmationCode)}"` : '';
-        tr.innerHTML = `
-          <td${codeTitle}>${escapeHtml(g.name)}${nameWarn}${noteHtml}</td>
-          <td><span class="pin-mask" title="Klicken zum Anzeigen">••••</span></td>
-          <td>${escapeHtml(fmt(g.checkIn))}</td>
-          <td>${escapeHtml(fmt(g.checkOut))}</td>
-          <td>${sourceBadge}</td>
-          <td></td>
-        `;
-
-        // PIN standardmäßig maskiert (Schutz vor Mitlesen bei Screensharing o.ä.), per
-        // Klick ein-/ausblendbar. Der echte Wert wird bewusst nicht als data-Attribut im
-        // DOM abgelegt, sondern per Closure gehalten, damit er nicht im HTML-Quelltext
-        // sichtbar ist, bevor er tatsächlich aufgedeckt wurde.
-        const pinSpan = tr.querySelector('.pin-mask');
-        let pinRevealed = false;
-        pinSpan.addEventListener('click', () => {
-          pinRevealed = !pinRevealed;
-          pinSpan.textContent = pinRevealed ? g.pin : '••••';
-        });
-
-        const actionsTd = tr.querySelector('td:last-child');
-
-        const editBtn = document.createElement('button');
-        editBtn.textContent = 'Bearbeiten';
-        editBtn.className = 'secondary';
-        editBtn.onclick = () => openEditor(g);
-        actionsTd.appendChild(editBtn);
-
-        const delBtn = document.createElement('button');
-        delBtn.textContent = 'Löschen';
-        delBtn.className = 'danger';
-        delBtn.onclick = () => removeGuest(g);
-        actionsTd.appendChild(delBtn);
-
-        rowsEl.appendChild(tr);
+        const checkIn = new Date(g.checkIn);
+        const checkOut = new Date(g.checkOut);
+        if (checkOut < todayStart) past.push(g);
+        else if (checkIn >= todayEnd) upcoming.push(g);
+        else today.push(g);
       });
+
+      today.sort((a, b) => new Date(a.checkIn) - new Date(b.checkIn));
+      upcoming.sort((a, b) => new Date(a.checkIn) - new Date(b.checkIn));
+      past.sort((a, b) => new Date(b.checkOut) - new Date(a.checkOut));
+
+      todayRowsEl.innerHTML = '';
+      if (today.length) today.forEach((g) => todayRowsEl.appendChild(buildGuestRow(g)));
+      else renderEmptyRow(todayRowsEl, 'Heute niemand zu Gast.');
+
+      upcomingRowsEl.innerHTML = '';
+      if (upcoming.length) upcoming.forEach((g) => upcomingRowsEl.appendChild(buildGuestRow(g)));
+      else renderEmptyRow(upcomingRowsEl, 'Keine anstehenden Reservierungen.');
+
+      pastRowsEl.innerHTML = '';
+      past.forEach((g) => pastRowsEl.appendChild(buildGuestRow(g)));
+      pastCountEl.textContent = String(past.length);
+    }
+
+    async function markGuestOk(guest) {
+      await api(`/api/admin/guests/${guest.id}/check-in`, { method: 'POST' });
+      await loadGuests();
     }
 
     function escapeHtml(str) {
@@ -410,7 +506,7 @@
     });
 
     loadGuests().catch((err) => {
-      rowsEl.innerHTML = `<tr><td colspan="6">Fehler beim Laden: ${escapeHtml(err.message)}</td></tr>`;
+      todayRowsEl.innerHTML = `<tr><td colspan="6">Fehler beim Laden: ${escapeHtml(err.message)}</td></tr>`;
     });
   </script>
 </body>
