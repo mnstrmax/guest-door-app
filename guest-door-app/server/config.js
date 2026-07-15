@@ -192,6 +192,11 @@ if (isAddon) {
   };
 }
 
+// App-Version aus package.json (identisch zur version in config.yaml, siehe dortigen
+// Kommentar) - wird im Admin-Panel angezeigt, damit auf einen Blick erkennbar ist, ob ein
+// Update tatsächlich angekommen ist (statt sich auf Cache-Verhalten verlassen zu müssen).
+config.appVersion = require(path.join(__dirname, '..', 'package.json')).version;
+
 // E-Mail-Sync nur aktiv, wenn IMAP-Host, Benutzername und Passwort vollständig gesetzt sind.
 config.hasEmailSync = !!(config.emailImapHost && config.emailImapUser && config.emailImapPassword);
 

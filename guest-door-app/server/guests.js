@@ -160,6 +160,22 @@ function markCheckedIn(id) {
   return guests[idx];
 }
 
+/**
+ * Setzt checkOut eines aktuell aktiven Gasts (PIN gerade gültig) auf den aktuellen
+ * Zeitpunkt - für Gäste, die schon vor dem eigentlich hinterlegten Check-out abgereist
+ * sind. Macht die PIN sofort ungültig (findValidGuest prüft checkIn <= jetzt <= checkOut),
+ * ohne den Eintrag zu löschen, damit die Historie sichtbar bleibt. Aufgerufen über den
+ * Button "Bereits ausgecheckt" in /admin.
+ */
+function markCheckedOut(id) {
+  const guests = loadGuests();
+  const idx = guests.findIndex((g) => g.id === id);
+  if (idx === -1) return null;
+  guests[idx] = { ...guests[idx], checkOut: new Date().toISOString() };
+  saveGuests(guests);
+  return guests[idx];
+}
+
 function updateGuest(id, { name, pin, checkIn, checkOut }) {
   const guests = loadGuests();
   const idx = guests.findIndex((g) => g.id === id);
@@ -205,6 +221,7 @@ module.exports = {
   deleteGuest,
   findValidGuest,
   markCheckedIn,
+  markCheckedOut,
   upsertSyncedGuest,
   invalidateMissingSyncedGuests,
   applyEmailEnrichment,

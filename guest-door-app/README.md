@@ -123,6 +123,15 @@ der Vergangenheit, sortiert nach Abreisedatum, neueste zuerst). Der abgelaufene 
 ist standardmäßig eingeklappt, damit die Liste übersichtlich bleibt, ohne die Historie
 wegzuwerfen - ein Klick auf "Abgelaufen (n)" klappt ihn auf.
 
+Reist ein Gast schon vor dem eigentlich hinterlegten Check-out ab, lässt sich das über
+den Button **"Bereits ausgecheckt"** nachtragen (nur sichtbar, solange der Gast gerade
+aktiv ist, also die PIN gerade gültig ist). Setzt den Check-out auf den aktuellen
+Zeitpunkt, macht die PIN damit sofort ungültig und der Gast wandert beim nächsten Laden
+nach "Abgelaufen".
+
+Die laufende Version steht oben rechts im Admin-Panel - praktisch, um nach einem Update
+auf einen Blick zu erkennen, ob es tatsächlich angekommen ist.
+
 ## Zimmersteuerung (Heizung + Lichter) für Rückkehrgäste
 
 Optional können Gäste im Rückkehrgast-Menü die Heizung sowie zwei Lichter im Zimmer

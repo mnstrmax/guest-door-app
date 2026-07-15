@@ -4,7 +4,15 @@ const crypto = require('crypto');
 const express = require('express');
 const config = require('./config');
 const HAClient = require('./haClient');
-const { findValidGuest, loadGuests, addGuest, updateGuest, deleteGuest, markCheckedIn } = require('./guests');
+const {
+  findValidGuest,
+  loadGuests,
+  addGuest,
+  updateGuest,
+  deleteGuest,
+  markCheckedIn,
+  markCheckedOut,
+} = require('./guests');
 const { createSession, getSession, updateSession, sessionsAwaitingBell } = require('./sessions');
 const {
   isRateLimited,
@@ -557,6 +565,22 @@ app.post('/api/admin/guests/:id/check-in', requireAdminSession, (req, res) => {
   const guest = markCheckedIn(req.params.id);
   if (!guest) return res.status(404).json({ error: 'Gast nicht gefunden.' });
   res.json(guest);
+});
+
+// Manuelles Vorziehen des Check-outs - für Gäste, die schon vor dem eigentlich
+// hinterlegten Zeitpunkt abgereist sind. Setzt checkOut auf jetzt (siehe
+// guests.js/markCheckedOut), wodurch die PIN sofort ungültig wird und der Gast beim
+// nächsten Laden von /admin nach "Abgelaufen" wandert.
+app.post('/api/admin/guests/:id/check-out', requireAdminSession, (req, res) => {
+  const guest = markCheckedOut(req.params.id);
+  if (!guest) return res.status(404).json({ error: 'Gast nicht gefunden.' });
+  res.json(guest);
+});
+
+// Liefert die App-Version fürs Admin-Panel (siehe config.js) - hilft zu erkennen, ob ein
+// Update tatsächlich angekommen ist, statt sich auf Browser-Caching-Verhalten zu verlassen.
+app.get('/api/admin/version', requireAdminSession, (req, res) => {
+  res.json({ version: config.appVersion });
 });
 
 app.listen(config.port, () => {

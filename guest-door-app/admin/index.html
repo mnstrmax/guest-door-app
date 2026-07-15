@@ -182,7 +182,10 @@
         <h1>Gäste-Verwaltung</h1>
         <p class="hint">PIN, Name und Zeitraum pro Gast. Läuft der Zeitraum ab, wird die PIN automatisch ungültig.</p>
       </div>
-      <button class="secondary" id="logout-btn">Abmelden</button>
+      <div style="text-align: right;">
+        <button class="secondary" id="logout-btn">Abmelden</button>
+        <p class="hint" id="version-tag" style="margin: 6px 0 0;"></p>
+      </div>
     </div>
 
     <h2 class="group-heading">Heute</h2>
@@ -369,6 +372,17 @@
         actionsTd.appendChild(okBtn);
       }
 
+      // Vorzeitiges Check-out - nur sichtbar, solange der Gast gerade aktiv ist (PIN
+      // aktuell gültig, d.h. checkIn <= jetzt <= checkOut). Bei zukünftigen oder bereits
+      // abgelaufenen Gästen ergibt ein vorgezogener Check-out keinen Sinn.
+      if (new Date(g.checkIn) <= new Date() && new Date(g.checkOut) >= new Date()) {
+        const outBtn = document.createElement('button');
+        outBtn.textContent = 'Bereits ausgecheckt';
+        outBtn.className = 'secondary';
+        outBtn.onclick = () => markGuestCheckedOut(g);
+        actionsTd.appendChild(outBtn);
+      }
+
       const editBtn = document.createElement('button');
       editBtn.textContent = 'Bearbeiten';
       editBtn.className = 'secondary';
@@ -425,6 +439,12 @@
 
     async function markGuestOk(guest) {
       await api(`/api/admin/guests/${guest.id}/check-in`, { method: 'POST' });
+      await loadGuests();
+    }
+
+    async function markGuestCheckedOut(guest) {
+      if (!confirm(`Check-out für "${guest.name}" auf jetzt setzen? Die PIN wird damit sofort ungültig.`)) return;
+      await api(`/api/admin/guests/${guest.id}/check-out`, { method: 'POST' });
       await loadGuests();
     }
 
@@ -559,6 +579,16 @@
     loadGuests().catch((err) => {
       todayRowsEl.innerHTML = `<tr><td colspan="6">Fehler beim Laden: ${escapeHtml(err.message)}</td></tr>`;
     });
+
+    // Zeigt die laufende Version an - praktisch, um nach einem Update auf einen Blick zu
+    // sehen, ob es tatsächlich angekommen ist, statt sich auf Browser-Caching-Verhalten
+    // verlassen zu müssen. Scheitert der Abruf (z.B. sehr alte Server-Version ohne diese
+    // Route), bleibt die Anzeige einfach leer statt einen Fehler zu zeigen.
+    api('/api/admin/version')
+      .then((data) => {
+        document.getElementById('version-tag').textContent = `Version ${data.version}`;
+      })
+      .catch(() => {});
   </script>
 </body>
 </html>
