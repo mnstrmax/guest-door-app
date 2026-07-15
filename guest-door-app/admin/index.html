@@ -34,6 +34,13 @@
   }
   th { background: #fafafa; font-weight: 600; }
   tr:last-child td { border-bottom: none; }
+  td:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 190px;
+  }
+  td:last-child button { margin-right: 0; }
   button {
     font-size: 0.85rem;
     padding: 6px 10px;
@@ -43,6 +50,7 @@
     color: #fff;
     cursor: pointer;
     margin-right: 4px;
+    white-space: nowrap;
   }
   button.secondary { background: #eee; color: #222; }
   button.danger { background: #d33; }
