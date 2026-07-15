@@ -317,8 +317,9 @@
 
       // Manuelles Nachtragen von "Alles in Ordnung" - für Gäste, die den Button am Ende
       // des Ablaufs selbst nicht gedrückt haben. Nur sichtbar, solange das noch nicht
-      // passiert ist.
-      if (!g.checkedInAt) {
+      // passiert ist UND der Check-in bereits begonnen hat - bei einem Gast, der noch gar
+      // nicht angereist ist, ergibt "alles OK" schlicht keinen Sinn.
+      if (!g.checkedInAt && new Date(g.checkIn) <= new Date()) {
         const okBtn = document.createElement('button');
         okBtn.textContent = 'Alles OK markieren';
         okBtn.className = 'secondary';

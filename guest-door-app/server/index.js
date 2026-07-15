@@ -417,6 +417,11 @@ function requireAdminSession(req, res, next) {
 }
 
 app.get('/admin/login', (req, res) => {
+  // Gleiche Begründung wie beim no-cache-Header für public/ (siehe oben): ohne den hier
+  // hält der Browser sonst eine alte Version dieser Seite vor, obwohl der Server längst
+  // eine neuere ausliefern würde - genau das Problem, das schon einmal die "gecachtes
+  // app.js"-Verwirrung verursacht hat.
+  res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'admin', 'login.html'));
 });
 
@@ -473,6 +478,7 @@ app.post('/admin/logout', (req, res) => {
 });
 
 app.get('/admin', requireAdminSession, (req, res) => {
+  res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
 });
 
