@@ -14,7 +14,7 @@
     color: #222;
     padding: 24px 16px 64px;
   }
-  .wrap { max-width: 720px; margin: 0 auto; }
+  .wrap { max-width: 1000px; margin: 0 auto; }
   h1 { font-size: 1.4rem; margin-bottom: 4px; }
   .hint { color: #666; font-size: 0.9rem; margin-top: 0; }
   table {
@@ -38,7 +38,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    min-width: 190px;
+    min-width: 230px;
   }
   td:last-child button { margin-right: 0; }
   button {
@@ -132,6 +132,46 @@
     word-break: break-all;
     margin: 10px 0;
     font-size: 0.95rem;
+  }
+
+  /* Schmale Bildschirme (Handys): Tabellen als Karten statt als Zeilen mit vielen engen
+     Spalten - jede Zeile wird ein eigener Block, jede Zelle zeigt ihr Label (data-label)
+     vor dem Wert. Deutlich lesbarer als eine zusammengequetschte 6-Spalten-Tabelle. */
+  @media (max-width: 640px) {
+    .row { flex-direction: column; gap: 0; }
+    table { box-shadow: none; background: none; border-radius: 0; }
+    thead { display: none; }
+    tr {
+      display: block;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      margin-bottom: 12px;
+      padding: 4px 12px;
+    }
+    tr:last-child { margin-bottom: 0; }
+    td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #f0f0f0;
+      padding: 8px 0;
+    }
+    tr td:last-child { border-bottom: none; }
+    td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: #555;
+      flex-shrink: 0;
+    }
+    td:last-child {
+      justify-content: flex-start;
+      min-width: 0;
+    }
+    td:last-child::before { content: none; }
+    .empty-row td::before { content: none; }
+    .guest-note { max-width: none; text-align: right; }
   }
 </style>
 </head>
@@ -293,12 +333,14 @@
         ? `<span class="guest-note" title="${escapeHtml(g.note)}">${escapeHtml(g.note)}</span>`
         : '';
       const codeTitle = g.confirmationCode ? ` title="Bestätigungscode: ${escapeHtml(g.confirmationCode)}"` : '';
+      // data-label wird nur auf schmalen Bildschirmen sichtbar (siehe Media Query oben) -
+      // dort werden Tabellenzeilen zu Karten, jede Zelle zeigt dann ihr Label vor dem Wert.
       tr.innerHTML = `
-        <td${codeTitle}>${escapeHtml(g.name)}${nameWarn}${checkedInBadge}${noteHtml}</td>
-        <td><span class="pin-mask" title="Klicken zum Anzeigen">••••</span></td>
-        <td>${escapeHtml(fmt(g.checkIn))}</td>
-        <td>${escapeHtml(fmt(g.checkOut))}</td>
-        <td>${sourceBadge}</td>
+        <td data-label="Name"${codeTitle}>${escapeHtml(g.name)}${nameWarn}${checkedInBadge}${noteHtml}</td>
+        <td data-label="PIN"><span class="pin-mask" title="Klicken zum Anzeigen">••••</span></td>
+        <td data-label="Check-in">${escapeHtml(fmt(g.checkIn))}</td>
+        <td data-label="Check-out">${escapeHtml(fmt(g.checkOut))}</td>
+        <td data-label="Quelle">${sourceBadge}</td>
         <td></td>
       `;
 
