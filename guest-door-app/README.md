@@ -52,9 +52,18 @@ danach und ergänzt automatisch importierte Gäste, deren Name noch der Platzhal
    `email_imap_user`, `email_imap_password` (bei Postfächern mit 2FA ein App-Passwort
    verwenden, das normale Passwort funktioniert dann meist nicht per IMAP), optional
    `email_imap_port` (Standard `993`) und `email_imap_mailbox` (Standard `INBOX`).
-2. Fertig - die App durchsucht ab dem nächsten Sync automatisch die letzten 30 Tage nach
-   Buchungsbestätigungsmails von Airbnb (auch manuell über den Button in `/admin`
+2. Fertig - die App durchsucht ab dem nächsten Sync automatisch die letzten 30 Tage im
+   Postfach nach Buchungsbestätigungsmails (auch manuell über den Button in `/admin`
    anstoßbar).
+
+Erkannt wird eine Buchungsbestätigung ausschließlich am **Betreff** (enthält "Buchung
+bestätigt"), nicht am Absender - das funktioniert also genauso, wenn du die Mails manuell
+aus deinem normalen Postfach in das dedizierte weiterleitest (dann bist selbst du der
+Absender, nur der Betreff bekommt ein "Fwd:"-Präfix, das nicht stört) wie auch bei einer
+serverseitigen Weiterleitungsregel, die den ursprünglichen Absender erhält. Wichtig beim
+manuellen Weiterleiten: **inline weiterleiten**, nicht "als Anhang" - die Erkennung von
+Name/Datum/Nachricht braucht den ursprünglichen Mailinhalt direkt im Text, nicht als
+angehängte `.eml`-Datei.
 
 Aus jeder passenden Mail werden extrahiert: der volle Gastname, Airbnbs
 Bestätigungscode und eine eventuelle Freitextnachricht des Gasts (z. B. ein Wunsch nach

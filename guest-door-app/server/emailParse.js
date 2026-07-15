@@ -10,12 +10,15 @@
 // HTML->Text-Konvertierung ist nicht exakt vorhersagbar - alle Muster arbeiten deshalb mit
 // toleranten "irgendwas dazwischen"-Fenstern ([\s\S]{0,N}?) statt starrer \n-Erwartungen.
 
-// Erkennt Buchungsbestätigungs-Mails an Absender + Betreff. Andere Airbnb-Mails
-// (Erinnerungen, Nachrichten, Rezensionsanfragen o.ä.) werden bewusst ignoriert.
-function isBookingConfirmationEmail({ subject, from }) {
-  const subj = (subject || '').toLowerCase();
-  const sender = (from || '').toLowerCase();
-  return sender.includes('airbnb') && /buchung best[aä]tigt/.test(subj);
+// Erkennt Buchungsbestätigungs-Mails ausschließlich am Betreff ("Buchung bestätigt ...").
+// Bewusst KEIN Absender-Check: Landet die Mail per manueller Weiterleitung im dedizierten
+// Postfach (siehe README, Abschnitt "E-Mail-Sync"), bist du selbst der Absender, nicht
+// mehr automated@airbnb.com - der Betreff bleibt dabei aber unverändert (nur mit
+// "Fwd:"-Präfix, das das Muster nicht stört, da es nicht am Zeilenanfang verankert ist).
+// Dass ein reiner Betreffs-Treffer genügt, ist hier unbedenklich, weil dieses Postfach
+// laut Empfehlung ohnehin ausschließlich für genau diesen Zweck angelegt wird.
+function isBookingConfirmationEmail({ subject }) {
+  return /buchung best[aä]tigt/i.test(subject || '');
 }
 
 // "Bestätigungs-Code\nHM4QZY53HT" (oder mit anderem Whitespace dazwischen) -> "HM4QZY53HT"

@@ -88,11 +88,15 @@ async function runSync(ha) {
     const lock = await client.getMailboxLock(config.emailImapMailbox);
     try {
       const since = new Date(Date.now() - SEARCH_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-      // Serverseitig bewusst nur nach Absender+Zeitraum filtern (ASCII-sicher). Ob es
-      // tatsächlich eine Buchungsbestätigung ist (Betreff enthält "Buchung bestätigt"),
-      // wird erst lokal nach dem Parsen geprüft - vermeidet Unicode-Sonderfälle in der
-      // IMAP-SEARCH-Implementierung verschiedener Mail-Provider.
-      const uids = await client.search({ from: 'airbnb.com', since }, { uid: true });
+      // Serverseitig bewusst nur nach Zeitraum filtern, ohne Absender-Einschränkung: Wird
+      // die Buchungsmail manuell weitergeleitet (siehe README, empfohlener Weg für ein
+      // dediziertes Postfach), steht dort der eigene Absender, nicht mehr Airbnb selbst.
+      // Ob es tatsächlich eine Buchungsbestätigung ist, wird erst lokal nach dem Parsen
+      // anhand des Betreffs geprüft (siehe emailParse.isBookingConfirmationEmail) -
+      // vermeidet außerdem Unicode-Sonderfälle in der IMAP-SEARCH-Implementierung
+      // verschiedener Mail-Provider. In einem dafür dedizierten Postfach ist der Verzicht
+      // auf den Absender-Filter unbedenklich.
+      const uids = await client.search({ since }, { uid: true });
 
       if (uids && uids.length) {
         for await (const msg of client.fetch(uids, { source: true }, { uid: true })) {
