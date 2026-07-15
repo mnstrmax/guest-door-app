@@ -4,6 +4,41 @@ Kleine WebApp für Airbnb-Gäste: PIN eingeben → einmal an der Ring-Gegensprec
 klingeln → Haustür öffnet sich automatisch (Ring Intercom) → Button für die
 Wohnungstür (Nuki) drücken. Gastgeber bekommt bei jedem Schritt eine Push-Benachrichtigung.
 
+## Automatischer Gäste-Import aus dem Airbnb-Kalender
+
+Statt jeden Gast manuell in `/admin` anzulegen, kann die App neue Reservierungen
+automatisch aus deinem privaten Airbnb-Kalender-Link importieren:
+
+1. In Airbnb: **Kalender → Verfügbarkeit → "Mit anderer Website verbinden"** → Link
+   kopieren (endet auf `.ics`).
+2. Den Link bei `airbnb_ical_url` in der Add-on-Konfiguration eintragen.
+
+Danach synchronisiert die App stündlich automatisch (plus einmal beim Start, und
+jederzeit manuell über den Button in `/admin`). Pro Reservierung wird ein Gast angelegt
+mit:
+
+- **Check-in/Check-out**: aus dem Kalender, kombiniert mit `default_checkin_time` /
+  `default_checkout_time` (Airbnb liefert nur das Datum, keine Uhrzeit; Standard 15:00/11:00).
+- **PIN**: die letzten 4 Ziffern der Telefonnummer, die Airbnb selbst seit 2019 im
+  Kalender-Export mitliefert (aus Datenschutzgründen keine vollständige Nummer und kein
+  Name mehr). Der Gast kennt seine eigene Nummer also bereits - du musst nichts extra
+  mitteilen.
+- **Name**: Airbnb liefert keinen Namen mehr, daher zunächst der Platzhalter
+  "Airbnb-Gast" (in der Gästeliste mit Hinweis-Badge markiert). Trag den echten Namen in
+  `/admin` nach, falls du die persönliche Begrüßung möchtest - spätere Syncs
+  überschreiben deine Korrektur nicht wieder.
+- Rein manuell blockierte Kalendertage (ohne echte Buchung) haben keine Telefonnummer im
+  Feed und werden automatisch übersprungen, es wird kein Gast dafür angelegt.
+
+Storniert ein Gast seine Reservierung auf Airbnb, erkennt der nächste Sync das (die
+Reservierung verschwindet aus dem Feed) und setzt die PIN sofort ungültig - der Eintrag
+bleibt aber sichtbar in der Liste, statt automatisch gelöscht zu werden. Manuell über
+`/admin` angelegte Gäste fasst der Sync nie an.
+
+**Der Kalender-Link ist geheim** wie ein Passwort (er verrät Buchungszeiträume) und wird
+genau wie alle anderen persönlichen Werte nur in der Add-on-Konfiguration bzw. `.env`
+gespeichert, nie im Quellcode/Git.
+
 ## Rückkehrgäste: Menü statt erneutem Klingel-Ablauf
 
 Sobald ein Gast den kompletten Ablauf einmal durchlaufen und am Ende auf **"Alles in
@@ -193,10 +228,12 @@ Add-on Store → ⋮ → Repositories**. Danach direkt mit Schritt 3 unten weite
    `room_side` (wie `apartment_side`), `notify_service` (z. B.
    `mobile_app_iphone17_von_max` für Push-Benachrichtigungen),
    `app_active_entity_id` (siehe Abschnitt "Eigene Klingel-Automation nicht doppelt
-   benachrichtigen lassen") sowie `guestroom_climate_entity_id`/
+   benachrichtigen lassen"), `guestroom_climate_entity_id`/
    `guestroom_ceiling_light_entity_id`/`guestroom_floor_light_entity_id` (siehe
-   Abschnitt "Zimmersteuerung") – alles direkt über die HA-Oberfläche, kein manuelles
-   Token nötig (der Supervisor stellt automatisch Zugriff auf die Core-API bereit).
+   Abschnitt "Zimmersteuerung") sowie `airbnb_ical_url`/`default_checkin_time`/
+   `default_checkout_time` (siehe Abschnitt "Automatischer Gäste-Import") – alles direkt
+   über die HA-Oberfläche, kein manuelles Token nötig (der Supervisor stellt automatisch
+   Zugriff auf die Core-API bereit).
 5. Add-on **starten**. Web-UI unter `http://<home-assistant-ip>:3000`, Gäste-Verwaltung
    unter `http://<home-assistant-ip>:3000/admin` (Login mit beliebigem Benutzernamen,
    Passwort = `admin_password`).

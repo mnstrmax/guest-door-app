@@ -104,6 +104,14 @@ if (isAddon) {
     guestroomClimateEntityId: opts.guestroom_climate_entity_id || null,
     guestroomCeilingLightEntityId: opts.guestroom_ceiling_light_entity_id || null,
     guestroomFloorLightEntityId: opts.guestroom_floor_light_entity_id || null,
+    // Optional: privater Airbnb-iCal-Export-Link (Kalender -> Verfügbarkeit -> "Mit
+    // anderer Website verbinden" -> Link kopieren). Ist er gesetzt, importiert die App
+    // Reservierungen automatisch als Gäste (PIN = letzte 4 Ziffern der Telefonnummer aus
+    // dem Feed - Airbnb liefert seit 2019 keinen Gastnamen mehr). Der Link ist geheim wie
+    // ein Passwort und landet nie im Quellcode/Git, nur hier in der Konfiguration.
+    airbnbIcalUrl: opts.airbnb_ical_url || null,
+    defaultCheckinTime: opts.default_checkin_time || '15:00',
+    defaultCheckoutTime: opts.default_checkout_time || '11:00',
     // Gäste liegen in einer persistenten JSON-Datei, verwaltet über die /admin-Seite -
     // nicht mehr über die Add-on-Optionen (die bieten keinen Datum/Zeit-Picker).
     guests: null,
@@ -137,6 +145,9 @@ if (isAddon) {
     guestroomClimateEntityId: process.env.GUESTROOM_CLIMATE_ENTITY_ID || null,
     guestroomCeilingLightEntityId: process.env.GUESTROOM_CEILING_LIGHT_ENTITY_ID || null,
     guestroomFloorLightEntityId: process.env.GUESTROOM_FLOOR_LIGHT_ENTITY_ID || null,
+    airbnbIcalUrl: process.env.AIRBNB_ICAL_URL || null,
+    defaultCheckinTime: process.env.DEFAULT_CHECKIN_TIME || '15:00',
+    defaultCheckoutTime: process.env.DEFAULT_CHECKOUT_TIME || '11:00',
     guests: null,
     guestsFile: path.join(__dirname, '..', 'guests.json'),
     port: process.env.PORT || 3000,

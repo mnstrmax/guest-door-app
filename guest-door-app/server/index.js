@@ -13,6 +13,7 @@ const {
   recordGlobalAttempt,
   resetGlobalAttempts,
 } = require('./rateLimiter');
+const airbnbSync = require('./airbnbSync');
 
 console.log(`[app] Starte im Modus: ${config.mode}`);
 console.log(`[app] imagesDir = ${config.imagesDir} (existiert: ${fs.existsSync(config.imagesDir)})`);
@@ -94,6 +95,7 @@ const ha = new HAClient({
   },
 });
 ha.connect();
+airbnbSync.start();
 
 function getClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
@@ -374,6 +376,20 @@ app.get('/admin', requireAdmin, (req, res) => {
 
 app.get('/api/admin/guests', requireAdmin, (req, res) => {
   res.json(loadGuests());
+});
+
+// Manueller Anstoß des Airbnb-Kalender-Syncs (normalerweise läuft er automatisch
+// stündlich im Hintergrund) - praktisch, um nach einer frischen Buchung nicht bis zu
+// einer Stunde warten zu müssen, bis der neue Gast in der Liste auftaucht.
+app.post('/api/admin/sync-airbnb', requireAdmin, async (req, res) => {
+  if (!config.airbnbIcalUrl) {
+    return res.status(400).json({ error: 'Kein Airbnb-Kalender-Link konfiguriert (airbnb_ical_url).' });
+  }
+  const result = await airbnbSync.runSync();
+  if (result?.error) {
+    return res.status(502).json({ error: result.error });
+  }
+  res.json(result);
 });
 
 app.post('/api/admin/guests', requireAdmin, (req, res) => {
