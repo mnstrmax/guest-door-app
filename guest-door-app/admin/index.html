@@ -80,6 +80,13 @@
   }
   .badge.airbnb { background: #ffe1e6; color: #b3003c; }
   .badge.warn { background: #fff3cd; color: #8a6500; margin-left: 4px; }
+  .pin-mask {
+    cursor: pointer;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 2px;
+    border-bottom: 1px dotted #999;
+  }
+  .pin-mask:hover { border-bottom-color: #000dff; }
 </style>
 </head>
 <body>
@@ -174,12 +181,24 @@
         const nameWarn = g.icalUid && g.name === 'Airbnb-Gast' ? '<span class="badge warn">Name anpassen</span>' : '';
         tr.innerHTML = `
           <td>${escapeHtml(g.name)}${nameWarn}</td>
-          <td>${escapeHtml(g.pin)}</td>
+          <td><span class="pin-mask" title="Klicken zum Anzeigen">••••</span></td>
           <td>${escapeHtml(fmt(g.checkIn))}</td>
           <td>${escapeHtml(fmt(g.checkOut))}</td>
           <td>${sourceBadge}</td>
           <td></td>
         `;
+
+        // PIN standardmäßig maskiert (Schutz vor Mitlesen bei Screensharing o.ä.), per
+        // Klick ein-/ausblendbar. Der echte Wert wird bewusst nicht als data-Attribut im
+        // DOM abgelegt, sondern per Closure gehalten, damit er nicht im HTML-Quelltext
+        // sichtbar ist, bevor er tatsächlich aufgedeckt wurde.
+        const pinSpan = tr.querySelector('.pin-mask');
+        let pinRevealed = false;
+        pinSpan.addEventListener('click', () => {
+          pinRevealed = !pinRevealed;
+          pinSpan.textContent = pinRevealed ? g.pin : '••••';
+        });
+
         const actionsTd = tr.querySelector('td:last-child');
 
         const editBtn = document.createElement('button');
