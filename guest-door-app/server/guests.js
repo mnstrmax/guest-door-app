@@ -7,7 +7,7 @@ const config = require('./config');
  * Gäste liegen in einer JSON-Datei (addon: /data/guests.json, standalone: guests.json),
  * verwaltet über die /admin-Seite. Wird bei jedem Aufruf frisch von der Platte gelesen,
  * damit Änderungen sofort wirken - kein Neustart nötig.
- * Jeder Gast: { id, name, pin, checkIn, checkOut, checkedInAt, icalUid, confirmationCode, note, confirmed }
+ * Jeder Gast: { id, name, pin, checkIn, checkOut, checkedInAt, icalUid, confirmationCode, confirmed }
  * checkedInAt: null, bis der Gast einmal den kompletten Tür-Ablauf durchlaufen und
  * "Alles in Ordnung" bestätigt hat - ab dann bekommt er bei erneuter PIN-Eingabe ein
  * Menü (Türen nochmal öffnen / Zimmer steuern) statt wieder des Klingel-Ablaufs.
@@ -16,10 +16,9 @@ const config = require('./config');
  * iCal-Feed, damit spätere Syncs denselben Gast aktualisieren statt zu duplizieren, und
  * damit der Sync manuell (ohne icalUid) angelegte Gäste niemals anfasst. null bei
  * manuell über /admin angelegten Gästen.
- * confirmationCode/note: optional, kommen aus der Airbnb-Buchungsbestätigungsmail (siehe
- * emailSync.js/emailParse.js) - confirmationCode ist Airbnbs Buchungscode (z.B.
- * "HM4QZY53HT"), note eine eventuelle Freitextnachricht des Gasts (z.B. Wunsch nach
- * früherem Check-in). Beides null, bis ein E-Mail-Sync sie gefunden hat.
+ * confirmationCode: optional, Airbnbs Buchungscode (z.B. "HM4QZY53HT") aus der
+ * Buchungsbestätigungsmail (siehe emailSync.js/emailParse.js). Null, bis ein E-Mail-Sync
+ * ihn gefunden hat.
  * confirmed: Airbnbs Kalender-Feed enthält auch noch unbestätigte Buchungsanfragen (nicht
  * nur endgültig angenommene Reservierungen) - ohne dieses Feld würde ein Gast schon PIN-
  * Zugriff bekommen, bevor der Gastgeber die Anfrage überhaupt angenommen hat. Manuell über
@@ -59,7 +58,6 @@ function addGuest({ name, pin, checkIn, checkOut }) {
     checkedInAt: null,
     icalUid: null,
     confirmationCode: null,
-    note: null,
     // Manuell angelegte Gäste sind immer sofort bestätigt - der Gastgeber legt sie selbst
     // an, es gibt hier keine "Anfrage vs. bestätigt"-Unterscheidung wie beim Kalender-Sync.
     confirmed: true,
@@ -90,7 +88,6 @@ function upsertSyncedGuest({ icalUid, name, pin, checkIn, checkOut }) {
       checkedInAt: null,
       icalUid,
       confirmationCode: null,
-      note: null,
       // Airbnbs Kalender-Feed enthält auch unbestätigte Anfragen (siehe Kommentar oben an
       // der Datei) - ohne konfigurierten E-Mail-Sync gibt es aber keine andere Quelle für
       // eine Bestätigung, dann bleibt es beim bisherigen Sofort-gültig-Verhalten.
@@ -135,8 +132,8 @@ function invalidateMissingSyncedGuests(currentUids) {
  * gesetzt, confirmed:false) genau einen mit demselben Check-in-Kalendertag und markiert
  * ihn als bestätigt - das schaltet seine PIN scharf (siehe findValidGuest). Trägt dabei
  * auch gleich den echten Namen (nur falls noch der Platzhalter "Airbnb-Gast" gesetzt ist -
- * eine schon manuell erfolgte Korrektur wird nie überschrieben) sowie Bestätigungscode/
- * Notiz aus der Buchungsbestätigungsmail ein (siehe emailSync.js). Bewusst NICHT mehr am
+ * eine schon manuell erfolgte Korrektur wird nie überschrieben) sowie den Bestätigungscode
+ * aus der Buchungsbestätigungsmail ein (siehe emailSync.js). Bewusst NICHT mehr am
  * Namens-Platzhalter als alleinigem Kriterium festgemacht (früher: g.name !==
  * 'Airbnb-Gast') - sonst würde ein schon manuell umbenannter, aber noch unbestätigter
  * Gast nie mehr bestätigt werden, obwohl genau das der Zweck dieser Mail ist. Gibt bei
@@ -146,7 +143,7 @@ function invalidateMissingSyncedGuests(currentUids) {
  * selben Tag infrage kämen (dann lieber nichts anfassen, statt riskieren, den falschen
  * Gast zu bestätigen).
  */
-function applyEmailEnrichment({ checkInDate, name, confirmationCode, note }) {
+function applyEmailEnrichment({ checkInDate, name, confirmationCode }) {
   const guests = loadGuests();
   const dayStart = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
@@ -166,7 +163,6 @@ function applyEmailEnrichment({ checkInDate, name, confirmationCode, note }) {
     ...guests[idx],
     name: guests[idx].name === 'Airbnb-Gast' ? name || guests[idx].name : guests[idx].name,
     confirmationCode: confirmationCode || guests[idx].confirmationCode || null,
-    note: note || guests[idx].note || null,
     confirmed: true,
   };
   saveGuests(guests);
@@ -222,8 +218,8 @@ function updateGuest(id, { name, pin, checkIn, checkOut }) {
   const guests = loadGuests();
   const idx = guests.findIndex((g) => g.id === id);
   if (idx === -1) return null;
-  // confirmationCode/note bleiben beim manuellen Bearbeiten unangetastet (kommen nur aus
-  // dem E-Mail-Sync, kein Formularfeld in /admin) - würden sonst durch das Editier-Formular
+  // confirmationCode bleibt beim manuellen Bearbeiten unangetastet (kommt nur aus dem
+  // E-Mail-Sync, kein Formularfeld in /admin) - würde sonst durch das Editier-Formular
   // versehentlich auf undefined überschrieben.
   guests[idx] = { ...guests[idx], name, pin, checkIn, checkOut };
   saveGuests(guests);

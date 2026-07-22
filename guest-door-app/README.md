@@ -71,14 +71,11 @@ aus deinem normalen Postfach in das dedizierte weiterleitest (dann bist selbst d
 Absender, nur der Betreff bekommt ein "Fwd:"-Präfix, das nicht stört) wie auch bei einer
 serverseitigen Weiterleitungsregel, die den ursprünglichen Absender erhält. Wichtig beim
 manuellen Weiterleiten: **inline weiterleiten**, nicht "als Anhang" - die Erkennung von
-Name/Datum/Nachricht braucht den ursprünglichen Mailinhalt direkt im Text, nicht als
-angehängte `.eml`-Datei.
+Name/Datum braucht den ursprünglichen Mailinhalt direkt im Text, nicht als angehängte
+`.eml`-Datei.
 
-Aus jeder passenden Mail werden extrahiert: der Vorname des Gasts, Airbnbs
-Bestätigungscode und eine eventuelle Freitextnachricht des Gasts (z. B. ein Wunsch nach
-früherem Check-in) - letztere erscheint als Notiz unter dem Namen in `/admin` und geht
-per Push an dich raus, du entscheidest selbst, ob und wie du darauf reagierst (die App
-ändert Check-in-Zeiten nie automatisch anhand einer Freitextnachricht).
+Aus jeder passenden Mail werden extrahiert: der Vorname des Gasts und Airbnbs
+Bestätigungscode.
 
 Die Zuordnung zu einem Gast passiert über den Check-in-Kalendertag: Gibt es dafür
 **genau einen** per Kalender-Sync importierten, noch unbestätigten Gast (siehe Hinweis
@@ -399,7 +396,7 @@ davorschalten – siehe Sicherheitshinweise.
   **und** danach geklingelt wird – ein Klingeln allein öffnet nichts.
 - Der E-Mail-Sync verbindet sich per TLS (Port 993) mit dem konfigurierten Postfach und
   liest dort nur Absender/Betreff/Text der zuletzt eingegangenen Mails - schreibt oder
-  löscht nichts. Ein aus einer Buchungsmail erkannter Name/Notiz wird nur übernommen,
+  löscht nichts. Ein aus einer Buchungsmail erkannter Name wird nur übernommen,
   wenn sich der Check-in-Tag eindeutig genau einem bereits per Kalender importierten,
   noch unbenannten Gast zuordnen lässt (siehe Abschnitt "E-Mail-Sync") - bei
   Mehrdeutigkeit passiert nichts automatisch.

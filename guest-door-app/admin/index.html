@@ -103,14 +103,6 @@
     padding: 4px 0;
   }
   details.past-section table { margin-top: 12px; }
-  .guest-note {
-    display: block;
-    font-size: 0.78rem;
-    color: #666;
-    font-style: italic;
-    margin-top: 2px;
-    max-width: 260px;
-  }
   .pin-mask {
     cursor: pointer;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -174,7 +166,6 @@
     }
     td:last-child::before { content: none; }
     .empty-row td::before { content: none; }
-    .guest-note { max-width: none; text-align: right; }
   }
 </style>
 </head>
@@ -356,17 +347,13 @@
       const pendingBadge =
         g.icalUid && !g.confirmed ? '<span class="badge warn">Buchungsanfrage - unbestätigt</span>' : '';
       const checkedInBadge = g.checkedInAt ? '<span class="badge ok">✓ bestätigt</span>' : '';
-      // Notiz/Bestätigungscode kommen aus einer per E-Mail-Sync erkannten Buchungsmail
-      // (siehe emailSync.js) - z.B. ein Wunsch nach früherem Check-in. Rein informativ,
-      // kein Formularfeld.
-      const noteHtml = g.note
-        ? `<span class="guest-note" title="${escapeHtml(g.note)}">${escapeHtml(g.note)}</span>`
-        : '';
+      // Bestätigungscode kommt aus einer per E-Mail-Sync erkannten Buchungsmail (siehe
+      // emailSync.js) - rein informativ als Tooltip, kein Formularfeld.
       const codeTitle = g.confirmationCode ? ` title="Bestätigungscode: ${escapeHtml(g.confirmationCode)}"` : '';
       // data-label wird nur auf schmalen Bildschirmen sichtbar (siehe Media Query oben) -
       // dort werden Tabellenzeilen zu Karten, jede Zelle zeigt dann ihr Label vor dem Wert.
       tr.innerHTML = `
-        <td data-label="Name"${codeTitle}>${escapeHtml(g.name)}${pendingBadge}${nameWarn}${checkedInBadge}${noteHtml}</td>
+        <td data-label="Name"${codeTitle}>${escapeHtml(g.name)}${pendingBadge}${nameWarn}${checkedInBadge}</td>
         <td data-label="PIN"><span class="pin-mask" title="Klicken zum Anzeigen">••••</span></td>
         <td data-label="Check-in">${escapeHtml(fmt(g.checkIn))}</td>
         <td data-label="Check-out">${escapeHtml(fmt(g.checkOut))}</td>

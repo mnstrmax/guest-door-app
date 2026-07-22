@@ -9,7 +9,6 @@ const {
   extractConfirmationCode,
   extractGuestName,
   extractCheckInDate,
-  extractGuestNote,
 } = require('./emailParse');
 
 // Airbnb-Buchungsbestätigungsmails ändern sich selten und der Gast selbst braucht die
@@ -164,9 +163,8 @@ async function runSync(ha) {
 
           const name = extractGuestName(text, subject);
           const confirmationCode = extractConfirmationCode(text);
-          const note = extractGuestNote(text);
 
-          const enriched = applyEmailEnrichment({ checkInDate, name, confirmationCode, note });
+          const enriched = applyEmailEnrichment({ checkInDate, name, confirmationCode });
           if (enriched) {
             matched += 1;
             newProcessedIds.push(messageId);
@@ -175,9 +173,8 @@ async function runSync(ha) {
             // versuchen kann (siehe else-Zweig unten).
             if (config.emailDeleteAfterSync) uidsToDelete.push(msg.uid);
             if (ha) {
-              const noteLine = note ? `\nNachricht: ${note}` : '';
               try {
-                await ha.notify(config.notifyService, `Name ergänzt: ${enriched.name}.${noteLine}`, 'Guest Door App');
+                await ha.notify(config.notifyService, `Name ergänzt: ${enriched.name}.`, 'Guest Door App');
               } catch (err) {
                 console.error('[email-sync] Benachrichtigung fehlgeschlagen:', err.message);
               }

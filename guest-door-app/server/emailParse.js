@@ -155,28 +155,9 @@ function extractCheckInDate(text, referenceDate = new Date()) {
   return candidate;
 }
 
-/**
- * Freitextnachricht des Gasts (z.B. Wünsche zum früheren Check-in): steht zwischen der
- * Anrede-Zeile ("Hallo <Host>, ...") und dem Button-Text ("Sende ... eine Nachricht").
- * Optional - hat der Gast keine Nachricht mitgeschickt, liefert Airbnb diesen Abschnitt
- * gar nicht erst, dann gibt es hier auch nichts zu finden.
- */
-function extractGuestNote(text) {
-  const m = /Hallo[^\n]*\n([\s\S]{1,500}?)\n\s*Sende\s/i.exec(text || '');
-  if (!m) return null;
-  const note = m[1]
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-  return note || null;
-}
-
 module.exports = {
   isBookingConfirmationEmail,
   extractConfirmationCode,
   extractGuestName,
   extractCheckInDate,
-  extractGuestNote,
 };
