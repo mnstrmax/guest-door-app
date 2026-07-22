@@ -139,6 +139,16 @@ async function runSync(ha) {
             // Ein späterer Sync nach einem Parser-Update soll die Mail dann erneut
             // versuchen können, statt sie für immer zu ignorieren.
             console.warn(`[email-sync] Check-in-Datum in Mail "${subject}" nicht erkannt, überspringe.`);
+            // Diagnose: der tatsächliche, von mailparser aus der Roh-Mail extrahierte Text
+            // unterscheidet sich teils vom Text, den ein PDF-Export (z.B. "Gmail drucken")
+            // zeigt - JSON.stringify macht dabei auch unsichtbare Zeichen/Zeilenumbrüche
+            // sichtbar, die im PDF nicht auffallen würden.
+            const idx = text.indexOf('Check-in');
+            console.warn(
+              idx === -1
+                ? '[email-sync] "Check-in" kommt im extrahierten Mailtext gar nicht vor.'
+                : `[email-sync] Textausschnitt zur Diagnose: ${JSON.stringify(text.slice(idx, idx + 80))}`
+            );
             continue;
           }
 
