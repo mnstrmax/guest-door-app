@@ -142,13 +142,23 @@ async function runSync(ha) {
             // Diagnose: der tatsächliche, von mailparser aus der Roh-Mail extrahierte Text
             // unterscheidet sich teils vom Text, den ein PDF-Export (z.B. "Gmail drucken")
             // zeigt - JSON.stringify macht dabei auch unsichtbare Zeichen/Zeilenumbrüche
-            // sichtbar, die im PDF nicht auffallen würden.
-            const idx = text.indexOf('Check-in');
-            console.warn(
-              idx === -1
-                ? '[email-sync] "Check-in" kommt im extrahierten Mailtext gar nicht vor.'
-                : `[email-sync] Textausschnitt zur Diagnose: ${JSON.stringify(text.slice(idx, idx + 80))}`
-            );
+            // sichtbar, die im PDF nicht auffallen würden. "Check-in" kommt außerdem schon
+            // vorher in einem Fließtext-Satz vor ("...Check-in zu bestätigen...") - deshalb
+            // ALLE Fundstellen samt größerem Ausschnitt danach loggen, nicht nur die erste.
+            let searchFrom = 0;
+            let occurrence = 0;
+            for (;;) {
+              const idx = text.indexOf('Check-in', searchFrom);
+              if (idx === -1) break;
+              occurrence += 1;
+              console.warn(
+                `[email-sync] Fundstelle #${occurrence} (Position ${idx}): ${JSON.stringify(text.slice(idx, idx + 200))}`
+              );
+              searchFrom = idx + 'Check-in'.length;
+            }
+            if (occurrence === 0) {
+              console.warn('[email-sync] "Check-in" kommt im extrahierten Mailtext gar nicht vor.');
+            }
             continue;
           }
 
