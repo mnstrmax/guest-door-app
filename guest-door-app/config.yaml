@@ -1,5 +1,5 @@
 name: "Guest Door App"
-version: "1.13.0"
+version: "1.13.1"
 slug: "guest_door_app"
 description: "PIN-geschützte WebApp für Airbnb-Gäste: öffnet Haustür (Ring Intercom) und Wohnungstür (Nuki) über Home Assistant."
 url: "https://github.com/mnstrmax/guest-door-app"

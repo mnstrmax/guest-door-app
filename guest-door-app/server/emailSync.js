@@ -133,8 +133,12 @@ async function runSync(ha) {
           const text = parsed.text || '';
           const checkInDate = extractCheckInDate(text, parsed.date || new Date());
           if (!checkInDate) {
+            // Bewusst NICHT als verarbeitet markieren (anders als früher) - anders als bei
+            // "keine Buchungsbestätigung" (oben) ist das hier potenziell ein behebbarer
+            // Parser-Fehler (z.B. ein Monatsformat, das emailParse.js noch nicht kennt).
+            // Ein späterer Sync nach einem Parser-Update soll die Mail dann erneut
+            // versuchen können, statt sie für immer zu ignorieren.
             console.warn(`[email-sync] Check-in-Datum in Mail "${subject}" nicht erkannt, überspringe.`);
-            newProcessedIds.push(messageId);
             continue;
           }
 
