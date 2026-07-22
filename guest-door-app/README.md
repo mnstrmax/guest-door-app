@@ -36,6 +36,15 @@ Reservierung verschwindet aus dem Feed) und setzt die PIN sofort ungültig - der
 bleibt aber sichtbar in der Liste, statt automatisch gelöscht zu werden. Manuell über
 `/admin` angelegte Gäste fasst der Sync nie an.
 
+**Wichtig:** Airbnbs Kalender-Feed enthält auch noch unbestätigte Buchungsanfragen, nicht
+nur von dir angenommene Reservierungen. Ist ein E-Mail-Postfach konfiguriert (siehe
+"E-Mail-Sync" unten), ist die PIN eines neu importierten Gasts deshalb zunächst **nicht
+gültig** - sie wird erst scharf, sobald die zugehörige "Buchung bestätigt"-Mail erkannt
+wurde (oder du sie in `/admin` manuell über den Button "Buchung bestätigen" bestätigst).
+In der Gästeliste ist das am Badge "Buchungsanfrage - unbestätigt" erkennbar. Ohne
+konfiguriertes E-Mail-Postfach gibt es keine andere Quelle für eine Bestätigung - dann
+bleibt es beim bisherigen Verhalten (PIN sofort beim Import gültig).
+
 **Der Kalender-Link ist geheim** wie ein Passwort (er verrät Buchungszeiträume) und wird
 genau wie alle anderen persönlichen Werte nur in der Add-on-Konfiguration bzw. `.env`
 gespeichert, nie im Quellcode/Git.
@@ -72,11 +81,14 @@ per Push an dich raus, du entscheidest selbst, ob und wie du darauf reagierst (d
 ändert Check-in-Zeiten nie automatisch anhand einer Freitextnachricht).
 
 Die Zuordnung zu einem Gast passiert über den Check-in-Kalendertag: Gibt es dafür
-**genau einen** per Kalender-Sync importierten Gast mit noch unverändertem Platzhalter-
-Namen, wird dieser ergänzt. Bei Mehrdeutigkeit (z. B. zwei Anreisen am selben Tag) oder
-wenn der Kalender-Sync die Reservierung noch nicht angelegt hat, passiert bewusst nichts
-- die Mail wird beim nächsten Durchlauf erneut geprüft, statt riskiert, den falschen
-Gast zu beschriften. Jede Mail wird nur einmal verarbeitet (unabhängig vom
+**genau einen** per Kalender-Sync importierten, noch unbestätigten Gast (siehe Hinweis
+oben), wird dieser bestätigt (die PIN wird damit scharf) und - falls der Name noch der
+Platzhalter "Airbnb-Gast" ist - gleich mit dem echten Namen ergänzt. Hast du den Namen
+selbst schon vorher in `/admin` korrigiert, wird er dadurch nicht nochmal überschrieben,
+die Bestätigung passiert trotzdem. Bei Mehrdeutigkeit (z. B. zwei Anreisen am selben Tag)
+oder wenn der Kalender-Sync die Reservierung noch nicht angelegt hat, passiert bewusst
+nichts - die Mail wird beim nächsten Durchlauf erneut geprüft, statt riskiert, den
+falschen Gast zu bestätigen. Jede Mail wird nur einmal verarbeitet (unabhängig vom
 "gelesen"-Status im Postfach, den z. B. auch die Mail-App auf deinem iPhone verändern
 könnte).
 

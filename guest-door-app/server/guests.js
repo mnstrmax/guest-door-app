@@ -7,7 +7,7 @@ const config = require('./config');
  * Gäste liegen in einer JSON-Datei (addon: /data/guests.json, standalone: guests.json),
  * verwaltet über die /admin-Seite. Wird bei jedem Aufruf frisch von der Platte gelesen,
  * damit Änderungen sofort wirken - kein Neustart nötig.
- * Jeder Gast: { id, name, pin, checkIn, checkOut, checkedInAt, icalUid, confirmationCode, note }
+ * Jeder Gast: { id, name, pin, checkIn, checkOut, checkedInAt, icalUid, confirmationCode, note, confirmed }
  * checkedInAt: null, bis der Gast einmal den kompletten Tür-Ablauf durchlaufen und
  * "Alles in Ordnung" bestätigt hat - ab dann bekommt er bei erneuter PIN-Eingabe ein
  * Menü (Türen nochmal öffnen / Zimmer steuern) statt wieder des Klingel-Ablaufs.
@@ -20,6 +20,16 @@ const config = require('./config');
  * emailSync.js/emailParse.js) - confirmationCode ist Airbnbs Buchungscode (z.B.
  * "HM4QZY53HT"), note eine eventuelle Freitextnachricht des Gasts (z.B. Wunsch nach
  * früherem Check-in). Beides null, bis ein E-Mail-Sync sie gefunden hat.
+ * confirmed: Airbnbs Kalender-Feed enthält auch noch unbestätigte Buchungsanfragen (nicht
+ * nur endgültig angenommene Reservierungen) - ohne dieses Feld würde ein Gast schon PIN-
+ * Zugriff bekommen, bevor der Gastgeber die Anfrage überhaupt angenommen hat. Manuell über
+ * /admin angelegte Gäste sind immer confirmed:true (der Gastgeber legt sie ja selbst an).
+ * Per iCal importierte Gäste starten mit confirmed:false, SOBALD ein E-Mail-Postfach für
+ * den Buchungsmail-Sync konfiguriert ist (config.hasEmailSync) - erst die zugehörige
+ * "Buchung bestätigt"-Mail (siehe applyEmailEnrichment) oder ein manueller Klick auf
+ * "Buchung bestätigen" in /admin (siehe confirmGuest) schaltet die PIN scharf. Ist kein
+ * E-Mail-Postfach konfiguriert, gibt es keine andere Quelle für eine Bestätigung - dann
+ * bleibt es beim bisherigen Verhalten (confirmed:true sofort bei Import).
  */
 function loadGuests() {
   try {
@@ -50,6 +60,9 @@ function addGuest({ name, pin, checkIn, checkOut }) {
     icalUid: null,
     confirmationCode: null,
     note: null,
+    // Manuell angelegte Gäste sind immer sofort bestätigt - der Gastgeber legt sie selbst
+    // an, es gibt hier keine "Anfrage vs. bestätigt"-Unterscheidung wie beim Kalender-Sync.
+    confirmed: true,
   };
   guests.push(guest);
   saveGuests(guests);
@@ -78,11 +91,18 @@ function upsertSyncedGuest({ icalUid, name, pin, checkIn, checkOut }) {
       icalUid,
       confirmationCode: null,
       note: null,
+      // Airbnbs Kalender-Feed enthält auch unbestätigte Anfragen (siehe Kommentar oben an
+      // der Datei) - ohne konfigurierten E-Mail-Sync gibt es aber keine andere Quelle für
+      // eine Bestätigung, dann bleibt es beim bisherigen Sofort-gültig-Verhalten.
+      confirmed: !config.hasEmailSync,
     };
     guests.push(guest);
     saveGuests(guests);
     return { guest, created: true };
   }
+  // confirmed bewusst NICHT zurücksetzen - ein bereits bestätigter Gast darf das nicht
+  // durch einen späteren Kalender-Sync (z.B. weil sich nur die Uhrzeit geändert hat)
+  // wieder verlieren.
   guests[idx] = { ...guests[idx], pin, checkIn, checkOut };
   saveGuests(guests);
   return { guest: guests[idx], created: false };
@@ -111,14 +131,20 @@ function invalidateMissingSyncedGuests(currentUids) {
 }
 
 /**
- * Sucht unter den per iCal-Sync importierten Gästen (icalUid gesetzt) genau einen mit
- * demselben Check-in-Kalendertag, dessen Name noch der Platzhalter "Airbnb-Gast" ist, und
- * trägt dort den echten Namen samt Bestätigungscode/Notiz aus der Buchungsbestätigungsmail
- * ein (siehe emailSync.js). Gibt bei Erfolg den aktualisierten Gast zurück, sonst null -
- * sowohl wenn gar kein Kandidat gefunden wurde (z.B. weil der Kalender-Sync noch nicht
- * gelaufen ist - der nächste Mail-Sync-Durchlauf versucht es dann erneut) als auch wenn
- * mehrere Kandidaten am selben Tag infrage kämen (dann lieber nichts anfassen, statt
- * riskieren, den falschen Gast zu beschriften).
+ * Sucht unter den per iCal-Sync importierten, noch NICHT bestätigten Gästen (icalUid
+ * gesetzt, confirmed:false) genau einen mit demselben Check-in-Kalendertag und markiert
+ * ihn als bestätigt - das schaltet seine PIN scharf (siehe findValidGuest). Trägt dabei
+ * auch gleich den echten Namen (nur falls noch der Platzhalter "Airbnb-Gast" gesetzt ist -
+ * eine schon manuell erfolgte Korrektur wird nie überschrieben) sowie Bestätigungscode/
+ * Notiz aus der Buchungsbestätigungsmail ein (siehe emailSync.js). Bewusst NICHT mehr am
+ * Namens-Platzhalter als alleinigem Kriterium festgemacht (früher: g.name !==
+ * 'Airbnb-Gast') - sonst würde ein schon manuell umbenannter, aber noch unbestätigter
+ * Gast nie mehr bestätigt werden, obwohl genau das der Zweck dieser Mail ist. Gibt bei
+ * Erfolg den aktualisierten Gast zurück, sonst null - sowohl wenn gar kein Kandidat
+ * gefunden wurde (z.B. weil der Kalender-Sync noch nicht gelaufen ist - der nächste
+ * Mail-Sync-Durchlauf versucht es dann erneut) als auch wenn mehrere Kandidaten am
+ * selben Tag infrage kämen (dann lieber nichts anfassen, statt riskieren, den falschen
+ * Gast zu bestätigen).
  */
 function applyEmailEnrichment({ checkInDate, name, confirmationCode, note }) {
   const guests = loadGuests();
@@ -127,7 +153,7 @@ function applyEmailEnrichment({ checkInDate, name, confirmationCode, note }) {
 
   const candidateIds = guests
     .filter((g) => {
-      if (!g.icalUid || g.name !== 'Airbnb-Gast') return false;
+      if (!g.icalUid || g.confirmed) return false;
       const ci = new Date(g.checkIn);
       return ci >= dayStart && ci < dayEnd;
     })
@@ -138,9 +164,10 @@ function applyEmailEnrichment({ checkInDate, name, confirmationCode, note }) {
   const idx = guests.findIndex((g) => g.id === candidateIds[0]);
   guests[idx] = {
     ...guests[idx],
-    name: name || guests[idx].name,
+    name: guests[idx].name === 'Airbnb-Gast' ? name || guests[idx].name : guests[idx].name,
     confirmationCode: confirmationCode || guests[idx].confirmationCode || null,
     note: note || guests[idx].note || null,
+    confirmed: true,
   };
   saveGuests(guests);
   return guests[idx];
@@ -176,6 +203,21 @@ function markCheckedOut(id) {
   return guests[idx];
 }
 
+/**
+ * Manuelles Bestätigen einer Kalender-Buchung (siehe confirmed-Feld oben) - falls die
+ * Buchungsmail nie ankommt (z.B. vergessen weiterzuleiten, IMAP kurzzeitig down) oder
+ * gar kein E-Mail-Sync konfiguriert ist, würde die PIN sonst dauerhaft ungültig bleiben.
+ * Button "Buchung bestätigen" in /admin, nur sichtbar bei noch unbestätigten Gästen.
+ */
+function confirmGuest(id) {
+  const guests = loadGuests();
+  const idx = guests.findIndex((g) => g.id === id);
+  if (idx === -1) return null;
+  guests[idx] = { ...guests[idx], confirmed: true };
+  saveGuests(guests);
+  return guests[idx];
+}
+
 function updateGuest(id, { name, pin, checkIn, checkOut }) {
   const guests = loadGuests();
   const idx = guests.findIndex((g) => g.id === id);
@@ -199,6 +241,13 @@ function deleteGuest(id) {
  * Findet einen Gast, dessen PIN passt UND dessen Gültigkeitszeitraum
  * (checkIn <= jetzt <= checkOut) den aktuellen Zeitpunkt einschließt.
  * So laufen alte PINs automatisch ab, ohne dass die Gästeliste manuell bereinigt werden muss.
+ * Zusätzlich: ein per Kalender importierter, aber noch nicht bestätigter Gast (confirmed:
+ * false - siehe Kommentar oben an der Datei) ist nie gültig, SOFERN ein E-Mail-Sync
+ * konfiguriert ist (config.hasEmailSync) - sonst könnte schon eine unbestätigte
+ * Airbnb-Anfrage physischen Zugang gewähren, bevor der Gastgeber sie überhaupt
+ * angenommen hat. Ohne konfigurierten E-Mail-Sync gibt es keine andere Bestätigungsquelle,
+ * dann greift diese zusätzliche Prüfung nicht (confirmed ist dann ohnehin immer true, siehe
+ * upsertSyncedGuest).
  */
 function findValidGuest(pin) {
   const guests = loadGuests();
@@ -206,6 +255,7 @@ function findValidGuest(pin) {
   return (
     guests.find((g) => {
       if (g.pin !== pin) return false;
+      if (g.icalUid && config.hasEmailSync && !g.confirmed) return false;
       const checkIn = new Date(g.checkIn);
       const checkOut = new Date(g.checkOut);
       return now >= checkIn && now <= checkOut;
@@ -222,6 +272,7 @@ module.exports = {
   findValidGuest,
   markCheckedIn,
   markCheckedOut,
+  confirmGuest,
   upsertSyncedGuest,
   invalidateMissingSyncedGuests,
   applyEmailEnrichment,

@@ -196,13 +196,21 @@ async function runSync(ha) {
   // Airbnb liefert keinen Gastnamen mit (siehe extractPhoneLast4) - neu angelegte Gäste
   // tragen bis zur manuellen Korrektur nur den Platzhalter "Airbnb-Gast". Push-Hinweis,
   // damit der Name zeitnah in /admin ergänzt wird (u.a. für die persönliche Begrüßung).
+  // Wichtig: Airbnbs Kalender-Feed enthält auch noch unbestätigte Buchungsanfragen, nicht
+  // nur endgültig angenommene Reservierungen (siehe guests.js/confirmed) - ist ein
+  // E-Mail-Sync konfiguriert, ist die PIN also erst nach der Bestätigungsmail (oder einem
+  // manuellen Klick auf "Buchung bestätigen" in /admin) tatsächlich scharf. Der Hinweistext
+  // macht das transparent, damit nicht der Eindruck entsteht, die App wäre kaputt.
   if (ha && newGuests.length > 0) {
     const lines = newGuests.map((g) => `- Check-in ${formatDateDe(g.checkIn)}, PIN ${g.pin}`);
     const title =
       newGuests.length === 1
         ? 'Neuer Gast aus Airbnb-Kalender importiert'
         : `${newGuests.length} neue Gäste aus Airbnb-Kalender importiert`;
-    const message = `Bitte Name(n) in /admin ergänzen:\n${lines.join('\n')}`;
+    const confirmHint = config.hasEmailSync
+      ? '\nHinweis: kann auch eine noch unbestätigte Anfrage sein - die PIN wird erst nach der Bestätigungsmail aktiv (oder manuell in /admin über "Buchung bestätigen").'
+      : '';
+    const message = `Bitte Name(n) in /admin ergänzen:\n${lines.join('\n')}${confirmHint}`;
     try {
       await ha.notify(config.notifyService, message, title);
     } catch (err) {

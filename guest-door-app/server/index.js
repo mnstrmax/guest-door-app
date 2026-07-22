@@ -12,6 +12,7 @@ const {
   deleteGuest,
   markCheckedIn,
   markCheckedOut,
+  confirmGuest,
 } = require('./guests');
 const { createSession, getSession, updateSession, sessionsAwaitingBell } = require('./sessions');
 const {
@@ -573,6 +574,15 @@ app.post('/api/admin/guests/:id/check-in', requireAdminSession, (req, res) => {
 // nächsten Laden von /admin nach "Abgelaufen" wandert.
 app.post('/api/admin/guests/:id/check-out', requireAdminSession, (req, res) => {
   const guest = markCheckedOut(req.params.id);
+  if (!guest) return res.status(404).json({ error: 'Gast nicht gefunden.' });
+  res.json(guest);
+});
+
+// Manuelles Bestätigen einer per Kalender importierten Buchung (siehe confirmed-Feld in
+// guests.js) - falls die Buchungsmail nie ankommt oder kein E-Mail-Sync konfiguriert ist,
+// bliebe die PIN sonst dauerhaft ungültig.
+app.post('/api/admin/guests/:id/confirm', requireAdminSession, (req, res) => {
+  const guest = confirmGuest(req.params.id);
   if (!guest) return res.status(404).json({ error: 'Gast nicht gefunden.' });
   res.json(guest);
 });

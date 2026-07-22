@@ -349,6 +349,12 @@
       const tr = document.createElement('tr');
       const sourceBadge = g.icalUid ? '<span class="badge airbnb">Airbnb</span>' : '<span class="badge">Manuell</span>';
       const nameWarn = g.icalUid && g.name === 'Airbnb-Gast' ? '<span class="badge warn">Name anpassen</span>' : '';
+      // Airbnbs Kalender-Feed enthält auch unbestätigte Anfragen, nicht nur angenommene
+      // Reservierungen (siehe guests.js/confirmed) - dieser Badge macht das im Admin-Panel
+      // sichtbar, bewusst anders benannt als der "✓ bestätigt"-Badge weiter unten (der
+      // meint etwas anderes: den Tür-Ablauf des Gasts, nicht die Buchung selbst).
+      const pendingBadge =
+        g.icalUid && !g.confirmed ? '<span class="badge warn">Buchungsanfrage - unbestätigt</span>' : '';
       const checkedInBadge = g.checkedInAt ? '<span class="badge ok">✓ bestätigt</span>' : '';
       // Notiz/Bestätigungscode kommen aus einer per E-Mail-Sync erkannten Buchungsmail
       // (siehe emailSync.js) - z.B. ein Wunsch nach früherem Check-in. Rein informativ,
@@ -360,7 +366,7 @@
       // data-label wird nur auf schmalen Bildschirmen sichtbar (siehe Media Query oben) -
       // dort werden Tabellenzeilen zu Karten, jede Zelle zeigt dann ihr Label vor dem Wert.
       tr.innerHTML = `
-        <td data-label="Name"${codeTitle}>${escapeHtml(g.name)}${nameWarn}${checkedInBadge}${noteHtml}</td>
+        <td data-label="Name"${codeTitle}>${escapeHtml(g.name)}${pendingBadge}${nameWarn}${checkedInBadge}${noteHtml}</td>
         <td data-label="PIN"><span class="pin-mask" title="Klicken zum Anzeigen">••••</span></td>
         <td data-label="Check-in">${escapeHtml(fmt(g.checkIn))}</td>
         <td data-label="Check-out">${escapeHtml(fmt(g.checkOut))}</td>
@@ -380,6 +386,17 @@
       });
 
       const actionsTd = tr.querySelector('td:last-child');
+
+      // Manuelles Bestätigen einer noch offenen Buchungsanfrage (siehe pendingBadge oben) -
+      // z.B. falls die Buchungsmail nie ankommt oder kein E-Mail-Sync konfiguriert ist.
+      // Ohne das würde die PIN sonst dauerhaft ungültig bleiben.
+      if (g.icalUid && !g.confirmed) {
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Buchung bestätigen';
+        confirmBtn.className = 'secondary';
+        confirmBtn.onclick = () => markGuestConfirmed(g);
+        actionsTd.appendChild(confirmBtn);
+      }
 
       // Manuelles Nachtragen von "Alles in Ordnung" - für Gäste, die den Button am Ende
       // des Ablaufs selbst nicht gedrückt haben. Nur sichtbar, solange das noch nicht
@@ -456,6 +473,11 @@
       pastRowsEl.innerHTML = '';
       past.forEach((g) => pastRowsEl.appendChild(buildGuestRow(g)));
       pastCountEl.textContent = String(past.length);
+    }
+
+    async function markGuestConfirmed(guest) {
+      await api(`/api/admin/guests/${guest.id}/confirm`, { method: 'POST' });
+      await loadGuests();
     }
 
     async function markGuestOk(guest) {
