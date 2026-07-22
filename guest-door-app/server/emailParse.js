@@ -90,21 +90,61 @@ const DE_MONTHS = {
   dez: 11,
 };
 
+// Alternation aus allen bekannten Monatsnamen/-abkürzungen, längste zuerst (rein
+// kosmetisch/unschädlich bei Gleichheit der Zuordnung) - als Anker für extractCheckInDate.
+const MONTH_ALTERNATION = Object.keys(DE_MONTHS)
+  .sort((a, b) => b.length - a.length)
+  .join('|');
+
 /**
  * "Check-in\nFr., 17. Juli\n15:00" -> Date. Das Jahr steht nirgends in der Mail, deshalb
  * wird das nächste Vorkommen dieses Tag/Monats ab referenceDate genommen (liegt der
  * naheliegende Kandidat mehr als ~6 Monate in der Vergangenheit, wird stattdessen das
  * Folgejahr angenommen - wichtig für Mails kurz vor Silvester).
+ *
+ * Zwei Stolpersteine aus echten Mails (siehe Git-Historie/Bugreports), die diese Funktion
+ * bewusst umschifft:
+ * 1. "Check-in" kommt vorher schon in einem Fließtextsatz vor ("...Einzelheiten zum
+ *    Check-in zu bestätigen..."), meist direkt gefolgt von einem langen Airbnb-Link.
+ *    Ein per Zeichen-Anzahl begrenztes Suchfenster ab "Check-in" kann in diesem Link
+ *    zufällig auf eine Ziffer treffen, oder (bei größerem Fenster) sogar auf eine
+ *    zufällige Buchstabenfolge, die wie ein Monat aussieht. Deshalb wird hier nur noch
+ *    nach TATSÄCHLICHEN Monatsnamen gesucht (MONTH_ALTERNATION), nicht nach beliebigen
+ *    Buchstaben - Zufallstreffer in einer Tracking-URL sind damit praktisch ausgeschlossen.
+ * 2. mailparser wandelt Airbnbs zweispaltige Check-in/Check-out-Tabelle in Text mit
+ *    Leerzeichen-Ausrichtung um, inklusive einer reinen Leerzeichen-"Trennzeile"
+ *    zwischen Überschrift und Werten (z.B. "Check-in       Check-out\n               \n
+ *    Sa., 1. Aug.   So., 2. Aug."). Ein zu kleines Zeichenfenster verpasst das Datum
+ *    dadurch komplett, ein zu großes würde stattdessen leicht das Check-out- statt das
+ *    Check-in-Datum erwischen. Da die Check-in-Spalte im Text aber immer VOR der
+ *    Check-out-Spalte steht, liefert eine unbegrenzte (aber auf echte Monatsnamen
+ *    beschränkte) Suche ab "Check-in" automatisch den ersten - also linken, also
+ *    Check-in - Treffer.
  */
 function extractCheckInDate(text, referenceDate = new Date()) {
-  const m = /Check-in[\s\S]{0,30}?(\d{1,2})\.\s*([A-Za-zÄÖÜäöü]+)[\s\S]{0,20}?(\d{1,2}):(\d{2})/.exec(text || '');
-  if (!m) return null;
+  if (!text) return null;
+  const idx = text.indexOf('Check-in');
+  if (idx === -1) return null;
+  const rest = text.slice(idx);
 
-  const day = parseInt(m[1], 10);
-  const month = DE_MONTHS[m[2].toLowerCase()];
+  const dateMatch = new RegExp(`(\\d{1,2})\\.\\s*(${MONTH_ALTERNATION})\\b`, 'i').exec(rest);
+  if (!dateMatch) return null;
+
+  const day = parseInt(dateMatch[1], 10);
+  const month = DE_MONTHS[dateMatch[2].toLowerCase()];
   if (month === undefined) return null;
-  const hh = parseInt(m[3], 10);
-  const mm = parseInt(m[4], 10);
+
+  // Uhrzeit steht - durch dieselbe Leerzeichen-Trennzeilen-Eigenheit abgesetzt - kurz
+  // danach in derselben (linken/Check-in-)Spalte. Bewusst ein kleines, aber großzügiges
+  // Suchfenster (statt komplett unbegrenzt wie beim Datum), damit nicht irgendeine
+  // spätere Uhrzeitangabe aus einem ganz anderen Mailabschnitt erwischt wird.
+  const afterDateEnd = dateMatch.index + dateMatch[0].length;
+  const timeWindow = rest.slice(afterDateEnd, afterDateEnd + 60);
+  const timeMatch = /(\d{1,2}):(\d{2})/.exec(timeWindow);
+  if (!timeMatch) return null;
+
+  const hh = parseInt(timeMatch[1], 10);
+  const mm = parseInt(timeMatch[2], 10);
 
   const year = referenceDate.getFullYear();
   let candidate = new Date(year, month, day, hh, mm);
