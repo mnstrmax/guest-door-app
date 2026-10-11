@@ -89,7 +89,8 @@ const ha = new HAClient({
         await ha.notify(
           config.notifyService,
           `${session.guestName} hat geklingelt - Haustür wurde geöffnet.`,
-          'Guest Door App'
+          'Guest Door App',
+          guestNotifyTag(session.guestId, 'bell')
         );
       } catch (err) {
         console.error('[app] Haustür konnte nicht geöffnet werden:', err.message);
@@ -101,7 +102,8 @@ const ha = new HAClient({
         await ha.notify(
           config.notifyService,
           `Haustür für ${session.guestName} konnte NICHT geöffnet werden!`,
-          'Guest Door App ⚠️'
+          'Guest Door App ⚠️',
+          guestNotifyTag(session.guestId, 'error')
         );
       }
     }
@@ -115,6 +117,14 @@ airbnbSync.start(ha);
 // Läuft bewusst nach airbnbSync.start(), damit ein per Kalender importierter Gast beim
 // ersten Mail-Sync-Durchlauf möglichst schon existiert (siehe emailSync.js).
 emailSync.start(ha);
+
+// Tag pro Gast UND Schritt (pin/bell/inside/error): so bleiben die Zwischenschritte bis zum
+// "alles in Ordnung" einzeln sichtbar (gleicher Tag würde die ältere Meldung ersetzen),
+// können dann aber gezielt alle entfernt werden (siehe /api/confirm-ok).
+const NOTIFY_STEPS = ['pin', 'bell', 'inside', 'error'];
+function guestNotifyTag(guestId, step) {
+  return `guest-door-${guestId || 'unknown'}-${step}`;
+}
 
 function getClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
@@ -191,7 +201,8 @@ app.post('/api/verify-pin', async (req, res) => {
     returning
       ? `${guest.name || 'Ein Gast'} hat sich erneut angemeldet.`
       : `${guest.name || 'Ein Gast'} hat sich mit der PIN angemeldet.`,
-    'Guest Door App'
+    'Guest Door App',
+    guestNotifyTag(guest.id, 'pin')
   );
 });
 
@@ -224,6 +235,12 @@ app.post('/api/confirm-ok', async (req, res) => {
   }
   if (session.guestId) markCheckedIn(session.guestId);
   res.json({ ok: true });
+  // Alle bisherigen Zwischenschritt-Benachrichtigungen dieses Gasts (PIN, geklingelt,
+  // in der Wohnung, ggf. Fehler) vom Handy entfernen - nur "alles in Ordnung" bleibt.
+  // Die Bestätigung selbst bekommt bewusst KEINEN Tag, damit sie nicht mit gelöscht wird.
+  for (const step of NOTIFY_STEPS) {
+    await ha.clearNotification(config.notifyService, guestNotifyTag(session.guestId, step));
+  }
   await ha.notify(config.notifyService, `${session.guestName} hat bestätigt: alles in Ordnung.`, 'Guest Door App');
 });
 
@@ -260,7 +277,12 @@ app.post('/api/open-apartment-door', async (req, res) => {
     updateSession(token, { step: 'done' });
     res.json({ ok: true });
 
-    await ha.notify(config.notifyService, `${session.guestName} ist in der Wohnung.`, 'Guest Door App');
+    await ha.notify(
+      config.notifyService,
+      `${session.guestName} ist in der Wohnung.`,
+      'Guest Door App',
+      guestNotifyTag(session.guestId, 'inside')
+    );
 
     // Best-effort: Lichter einschalten. Schlägt das fehl, bleibt die Tür trotzdem offen -
     // daher kein Fehler an den Gast, nur ins Log.
@@ -280,7 +302,8 @@ app.post('/api/open-apartment-door', async (req, res) => {
     await ha.notify(
       config.notifyService,
       `Wohnungstür für ${session.guestName} konnte NICHT geöffnet werden!`,
-      'Guest Door App ⚠️'
+      'Guest Door App ⚠️',
+      guestNotifyTag(session.guestId, 'error')
     );
   }
 });

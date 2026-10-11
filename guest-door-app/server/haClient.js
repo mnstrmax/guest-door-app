@@ -156,12 +156,29 @@ class HAClient {
    * Best-effort: wenn nicht konfiguriert oder der Aufruf fehlschlägt, wird nichts geworfen -
    * eine fehlende Benachrichtigung soll niemals den eigentlichen Türvorgang blockieren.
    */
-  async notify(notifyService, message, title) {
+  async notify(notifyService, message, title, tag) {
     if (!notifyService) return;
     try {
-      await this.callService('notify', notifyService, { message, title });
+      // Optionaler "tag": die HA-Companion-App fasst Benachrichtigungen mit gleichem Tag
+      // zusammen und kann sie per clearNotification gezielt wieder entfernen.
+      const payload = { message, title };
+      if (tag) payload.data = { tag };
+      await this.callService('notify', notifyService, payload);
     } catch (err) {
       console.error('[HA] Benachrichtigung konnte nicht gesendet werden:', err.message);
+    }
+  }
+
+  /**
+   * Entfernt alle bereits zugestellten Benachrichtigungen mit diesem Tag vom Handy
+   * (Companion-App-Feature "clear_notification"). Best-effort wie notify().
+   */
+  async clearNotification(notifyService, tag) {
+    if (!notifyService || !tag) return;
+    try {
+      await this.callService('notify', notifyService, { message: 'clear_notification', data: { tag } });
+    } catch (err) {
+      console.error('[HA] Benachrichtigung konnte nicht entfernt werden:', err.message);
     }
   }
 }

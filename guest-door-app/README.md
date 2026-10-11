@@ -117,6 +117,10 @@ Ist keine Zimmersteuerung konfiguriert, gibt es kein Menü - Rückkehrgäste dur
 dann weiterhin einfach den normalen Klingel-Ablauf wie beim ersten Mal.
 
 Der Bestätigungs-Button am Ende schickt außerdem eine Push-Benachrichtigung an dich.
+Sobald diese "Alles in Ordnung"-Meldung ankommt, werden die vorherigen Zwischenschritt-
+Meldungen dieses Gasts (angemeldet, geklingelt, in der Wohnung, ggf. Fehler) automatisch
+von deinem Handy entfernt - nur die Bestätigung bleibt stehen. Das nutzt die
+`tag`/`clear_notification`-Funktion der HA-Companion-App (iOS und Android).
 
 Drückt ein Gast diesen Button nicht (kommt vor), lässt sich das in `/admin` manuell
 nachtragen: Bei einem noch nicht bestätigten Gast erscheint der Button **"Alles OK
